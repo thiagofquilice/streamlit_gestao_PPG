@@ -9,10 +9,12 @@ from data import (
     list_criterios,
     list_linhas,
     list_objetivos,
+    list_ppg_memberships,
     list_swot,
     upsert_record,
 )
 from rbac import can
+from components.forms import user_creation_form
 
 
 st.title("Administração do PPG")
@@ -30,6 +32,26 @@ if not can(role, "manage_ppg_admin"):
 def _refresh():
     st.experimental_rerun()
 
+
+if can(role, "manage_users"):
+    st.subheader("Usuários do PPG")
+    memberships = list_ppg_memberships(ppg_id)
+    if memberships:
+        for membership in memberships:
+            cols = st.columns([3, 2, 1])
+            email = membership.get("email") or membership.get("user_id")
+            cols[0].markdown(f"**{email or 'Usuário'}**\n\n`{membership.get('created_at', '')}`")
+            cols[1].write(membership.get("role", "-").capitalize())
+            if cols[2].button("Remover", key=f"del_membership_{membership['id']}"):
+                delete_record("ppg_memberships", membership["id"])
+                _refresh()
+    else:
+        st.info("Nenhum usuário vinculado a este PPG.")
+
+    if user_creation_form(ppg_id):
+        _refresh()
+
+    st.divider()
 
 st.subheader("Linhas de pesquisa")
 linhas = list_linhas(ppg_id)

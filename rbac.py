@@ -7,6 +7,7 @@ ROLE_PERMISSIONS: dict[str, Set[str]] = {
     "coordenador": {
         "view_overview",
         "manage_ppg_admin",
+        "manage_users",
         "manage_projects",
         "manage_dissertations",
         "manage_articles",

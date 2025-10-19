@@ -288,7 +288,7 @@ for all using (has_role(ppg_id, array['coordenador']::text[]))
 with check (has_role(ppg_id, array['coordenador']::text[]));
 ```
 
-3. Crie usuários no Supabase Authentication e associe-os às tabelas de `ppg_memberships` com a role adequada.
+3. Crie usuários no Supabase Authentication e associe-os às tabelas de `ppg_memberships` com a role adequada. Para permitir que coordenadores realizem esse cadastro diretamente no aplicativo, defina a variável `SUPABASE_SERVICE_ROLE_KEY` com a chave de service role (mantenha-a fora do repositório).
 
 ## Variáveis de ambiente
 
@@ -296,6 +296,7 @@ Configure as seguintes variáveis antes de executar o app (via `.env`, Docker Co
 
 - `SUPABASE_URL`: URL do projeto Supabase (ex.: `https://xxxx.supabase.co`).
 - `SUPABASE_ANON_KEY`: chave pública anônima do projeto.
+- `SUPABASE_SERVICE_ROLE_KEY` (opcional): habilita o cadastro de novos usuários pelo coordenador dentro do app.
 
 Opcionalmente, para desenvolvimento local, você pode definir esses valores em `.streamlit/secrets.toml`.
 
@@ -338,7 +339,7 @@ pages/
 
 ## Papéis e permissões
 
-- **Coordenador**: acesso total, incluindo administração do PPG e relatórios.
+- **Coordenador**: acesso total, incluindo administração do PPG, relatórios e (com `SUPABASE_SERVICE_ROLE_KEY`) cadastro de novos usuários vinculados ao programa.
 - **Professor**: pode gerenciar projetos, dissertações, artigos, PTTs e avaliações.
 - **Mestrando**: pode cadastrar artigos/PTTs e visualizar indicadores gerais.
 

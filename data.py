@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from supabase import Client
 
-from auth import get_supabase_client
+from auth import get_supabase_admin_client, get_supabase_client
 
 
 def _client() -> Client:
@@ -49,6 +49,66 @@ def upsert_record(table: str, payload: Dict[str, Any]) -> Dict[str, Any]:
 
 def delete_record(table: str, record_id: Any) -> None:
     _client().table(table).delete().eq("id", record_id).execute()
+
+
+def user_management_available() -> bool:
+    """Return True when the app can manage Supabase users with a service key."""
+
+    return get_supabase_admin_client() is not None
+
+
+def create_user_and_membership(ppg_id: str, email: str, password: str, role: str) -> Dict[str, Any]:
+    """Create a Supabase Auth user and link it to the PPG membership table."""
+
+    admin_client = get_supabase_admin_client()
+    if not admin_client:
+        raise RuntimeError(
+            "Para cadastrar usuários configure SUPABASE_SERVICE_ROLE_KEY nas variáveis de ambiente."
+        )
+
+    user_response = admin_client.auth.admin.create_user(
+        {
+            "email": email,
+            "password": password,
+            "email_confirm": True,
+        }
+    )
+    user = getattr(user_response, "user", None)
+    if not user:
+        raise RuntimeError("Supabase não retornou o usuário criado.")
+
+    membership_payload = {"ppg_id": ppg_id, "user_id": user.id, "role": role}
+    membership = upsert_record("ppg_memberships", membership_payload)
+    return {"user": {"id": user.id, "email": user.email}, "membership": membership}
+
+
+def list_ppg_memberships(ppg_id: str) -> List[Dict[str, Any]]:
+    """Return memberships for the selected PPG and enrich with user emails when possible."""
+
+    response = (
+        _client()
+        .table("ppg_memberships")
+        .select("id, user_id, role, created_at")
+        .eq("ppg_id", ppg_id)
+        .order("created_at")
+        .execute()
+    )
+    registros = response.data or []
+
+    admin_client = get_supabase_admin_client()
+    if not admin_client:
+        return registros
+
+    enriquecidos: List[Dict[str, Any]] = []
+    for registro in registros:
+        try:
+            detalhes = admin_client.auth.admin.get_user_by_id(registro["user_id"])  # type: ignore[index]
+            usuario = getattr(detalhes, "user", None)
+            email = getattr(usuario, "email", None)
+        except Exception:  # pragma: no cover - fallback se a API falhar
+            email = None
+        enriquecidos.append({**registro, "email": email})
+    return enriquecidos
 
 
 # -- Specific helpers -----------------------------------------------------

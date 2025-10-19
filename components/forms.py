@@ -5,7 +5,13 @@ from typing import Dict, Iterable
 
 import streamlit as st
 
-from data import create_article, create_avaliacao, create_ptt
+from data import (
+    create_article,
+    create_avaliacao,
+    create_ptt,
+    create_user_and_membership,
+    user_management_available,
+)
 
 
 def article_form(ppg_id: str) -> None:
@@ -62,3 +68,37 @@ def evaluation_form(ppg_id: str, ficha_id: str, avaliador_id: str, criterios: It
             st.success(f"Avaliação registrada. Nota total: {avaliacao['total']:.2f}")
         except Exception as exc:
             st.error(f"Erro ao salvar avaliação: {exc}")
+
+
+def user_creation_form(ppg_id: str) -> bool:
+    """Render a form for coordinators to create Supabase users."""
+
+    if not user_management_available():
+        st.info(
+            "Para habilitar o cadastro de usuários defina a variável SUPABASE_SERVICE_ROLE_KEY com a service role key do Supabase."
+        )
+        return False
+
+    with st.form("form_user_creation"):
+        st.subheader("Cadastrar novo usuário")
+        email = st.text_input("E-mail institucional")
+        senha = st.text_input("Senha inicial", type="password")
+        role = st.selectbox("Papel", ["coordenador", "professor", "mestrando"])
+        submitted = st.form_submit_button("Criar usuário e vincular")
+
+    if not submitted:
+        return False
+
+    if not email or not senha:
+        st.error("Informe e-mail e uma senha inicial.")
+        return False
+
+    try:
+        resultado = create_user_and_membership(ppg_id, email, senha, role)
+    except Exception as exc:  # pragma: no cover - feedback ao coordenador
+        st.error(f"Erro ao cadastrar usuário: {exc}")
+        return False
+
+    usuario_email = resultado.get("user", {}).get("email", email)
+    st.success(f"Usuário {usuario_email} criado e vinculado ao PPG.")
+    return True

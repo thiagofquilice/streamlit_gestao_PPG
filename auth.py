@@ -43,6 +43,26 @@ def get_supabase_client() -> Client:
     return create_client(url, key)
 
 
+def _read_service_role_key() -> Optional[str]:
+    """Return the Supabase service role key if available."""
+
+    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    if not key and hasattr(st, "secrets"):
+        key = st.secrets.get("SUPABASE_SERVICE_ROLE_KEY")
+    return key
+
+
+@st.cache_resource(show_spinner=False)
+def get_supabase_admin_client() -> Optional[Client]:
+    """Return a Supabase client using the service role key when configured."""
+
+    url, _ = _read_supabase_settings()
+    service_key = _read_service_role_key()
+    if not url or not service_key:
+        return None
+    return create_client(url, service_key)
+
+
 def get_auth_state() -> Optional[AuthState]:
     auth_dict = st.session_state.get("auth")
     if not auth_dict:
