@@ -31,9 +31,8 @@ def _read_supabase_settings() -> tuple[Optional[str], Optional[str]]:
     return url, key
 
 
-@st.cache_resource(show_spinner=False)
-def get_supabase_client() -> Client:
-    """Return a cached Supabase client instance."""
+def _create_supabase_client() -> Client:
+    """Instantiate a Supabase client using the configured credentials."""
 
     url, key = _read_supabase_settings()
     if not url or not key:
@@ -41,6 +40,16 @@ def get_supabase_client() -> Client:
             "Supabase credentials are missing. Configure SUPABASE_URL and SUPABASE_ANON_KEY."
         )
     return create_client(url, key)
+
+
+def get_supabase_client() -> Client:
+    """Return a Supabase client scoped to the current Streamlit session."""
+
+    client = st.session_state.get("_supabase_client")
+    if client is None:
+        client = _create_supabase_client()
+        st.session_state["_supabase_client"] = client
+    return client
 
 
 def get_auth_state() -> Optional[AuthState]:
@@ -81,3 +90,4 @@ def logout() -> None:
     st.session_state.pop("auth", None)
     st.session_state.pop("ppg_id", None)
     st.session_state.pop("role", None)
+    st.session_state.pop("_supabase_client", None)
