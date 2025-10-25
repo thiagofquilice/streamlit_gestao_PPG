@@ -21,6 +21,7 @@ auth_state = get_auth_state()
 
 if not can(role, "manage_evaluations"):
     st.error("Somente coordenadores e professores podem lançar avaliações.")
+    st.stop()
 else:
     fichas = list_fichas(ppg_id)
     if not fichas:
