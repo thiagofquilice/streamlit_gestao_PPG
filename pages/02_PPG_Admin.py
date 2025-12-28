@@ -3,15 +3,23 @@ from __future__ import annotations
 
 import streamlit as st
 
-from data import (
-    delete_record,
-    list_fichas,
-    list_criterios,
-    list_linhas,
-    list_objetivos,
+from provider import (
+    add_objective,
+    add_research_line,
+    add_swot_item,
+    delete_generic,
+    list_criteria,
+    list_forms,
+    list_objectives,
     list_ppg_memberships,
+    list_research_lines,
     list_swot,
-    upsert_record,
+    remove_criterion,
+    remove_objective,
+    remove_research_line,
+    remove_swot_item,
+    upsert_criterion,
+    upsert_form,
 )
 from rbac import can
 from components.forms import user_creation_form
@@ -43,7 +51,7 @@ if can(role, "manage_users"):
             cols[0].markdown(f"**{email or 'Usuário'}**\n\n`{membership.get('created_at', '')}`")
             cols[1].write(membership.get("role", "-").capitalize())
             if cols[2].button("Remover", key=f"del_membership_{membership['id']}"):
-                delete_record("ppg_memberships", membership["id"])
+                delete_generic("ppg_memberships", membership["id"])
                 _refresh()
     else:
         st.info("Nenhum usuário vinculado a este PPG.")
@@ -54,13 +62,13 @@ if can(role, "manage_users"):
     st.divider()
 
 st.subheader("Linhas de pesquisa")
-linhas = list_linhas(ppg_id)
+linhas = list_research_lines(ppg_id)
 if linhas:
     for linha in linhas:
         cols = st.columns([3, 1])
         cols[0].write(f"**{linha.get('nome', 'Sem nome')}**\n\n{linha.get('descricao', '')}")
         if cols[1].button("Remover", key=f"del_linha_{linha['id']}"):
-            delete_record("linhas_pesquisa", linha["id"])
+            remove_research_line(linha["id"])
             _refresh()
 else:
     st.info("Nenhuma linha cadastrada.")
@@ -70,7 +78,7 @@ with st.form("form_linha"):
     descricao = st.text_area("Descrição")
     submitted = st.form_submit_button("Adicionar linha")
 if submitted and nome:
-    upsert_record("linhas_pesquisa", {"ppg_id": ppg_id, "nome": nome, "descricao": descricao})
+    add_research_line(ppg_id, nome, descricao)
     _refresh()
 
 st.divider()
@@ -90,7 +98,7 @@ for categoria, titulo in {
             cols = st.columns([4, 1])
             cols[0].write(item.get("descricao", ""))
             if cols[1].button("Remover", key=f"del_swot_{item['id']}"):
-                delete_record("swot", item["id"])
+                remove_swot_item(item["id"])
                 _refresh()
     else:
         st.write("Sem registros")
@@ -104,19 +112,19 @@ with st.form("form_swot"):
     descricao = st.text_area("Descrição da entrada")
     submitted_swot = st.form_submit_button("Adicionar entrada")
 if submitted_swot and descricao:
-    upsert_record("swot", {"ppg_id": ppg_id, "categoria": categoria, "descricao": descricao})
+    add_swot_item(ppg_id, categoria, descricao)
     _refresh()
 
 st.divider()
 
 st.subheader("Objetivos estratégicos")
-objetivos = list_objetivos(ppg_id)
+objetivos = list_objectives(ppg_id)
 if objetivos:
     for obj in objetivos:
         cols = st.columns([4, 1])
         cols[0].write(f"{obj.get('ordem', '-')}. {obj.get('descricao', '')}")
         if cols[1].button("Remover", key=f"del_obj_{obj['id']}"):
-            delete_record("objetivos", obj["id"])
+            remove_objective(obj["id"])
             _refresh()
 else:
     st.info("Nenhum objetivo cadastrado.")
@@ -126,23 +134,23 @@ with st.form("form_objetivo"):
     descricao_obj = st.text_area("Descrição do objetivo")
     submitted_obj = st.form_submit_button("Adicionar objetivo")
 if submitted_obj and descricao_obj:
-    upsert_record("objetivos", {"ppg_id": ppg_id, "ordem": int(ordem), "descricao": descricao_obj})
+    add_objective(ppg_id, int(ordem), descricao_obj)
     _refresh()
 
 st.divider()
 
 st.subheader("Fichas de avaliação e critérios")
-fichas = list_fichas(ppg_id)
+fichas = list_forms(ppg_id, kind=None)
 if fichas:
     ficha_options = {ficha["nome"]: ficha for ficha in fichas}
     ficha_nome = st.selectbox("Ficha", list(ficha_options.keys()))
     ficha = ficha_options[ficha_nome]
-    criterios = list_criterios(ficha["id"])
+    criterios = list_criteria(ficha["id"])
     if criterios:
         st.table({"Critério": [c.get("descricao") for c in criterios], "Peso": [c.get("peso") for c in criterios]})
         for criterio in criterios:
             if st.button("Remover critério", key=f"del_criterio_{criterio['id']}"):
-                delete_record("ficha_criterios", criterio["id"])
+                remove_criterion(criterio["id"])
                 _refresh()
     else:
         st.info("Nenhum critério para esta ficha.")
@@ -153,15 +161,7 @@ if fichas:
         ordem = st.number_input("Ordem", min_value=1, value=len(criterios) + 1)
         submitted_criterio = st.form_submit_button("Adicionar critério")
     if submitted_criterio and descricao:
-        upsert_record(
-            "ficha_criterios",
-            {
-                "ficha_id": ficha["id"],
-                "descricao": descricao,
-                "peso": peso,
-                "ordem": int(ordem),
-            },
-        )
+        upsert_criterion(ficha["id"], descricao, peso, int(ordem))
         _refresh()
 else:
     st.info("Cadastre a primeira ficha para liberar os critérios.")
@@ -170,5 +170,5 @@ with st.form("form_ficha"):
     nome_ficha = st.text_input("Nome da ficha")
     submitted_ficha = st.form_submit_button("Criar ficha")
 if submitted_ficha and nome_ficha:
-    upsert_record("fichas", {"ppg_id": ppg_id, "nome": nome_ficha})
+    upsert_form(ppg_id, nome_ficha)
     _refresh()

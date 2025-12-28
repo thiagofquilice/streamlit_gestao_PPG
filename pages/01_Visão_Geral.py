@@ -4,13 +4,7 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
-from data import (
-    list_articles,
-    list_avaliacoes,
-    list_dissertacoes,
-    list_projetos,
-    list_ptts,
-)
+from provider import list_articles, list_dissertations, list_evaluations, list_projects, list_ptts
 from rbac import can
 
 
@@ -25,8 +19,8 @@ if not ppg_id:
 st.caption(f"PPG ativo: {ppg_id} | Perfil: {role}")
 
 col1, col2, col3, col4 = st.columns(4)
-col1.metric("Projetos", len(list_projetos(ppg_id)))
-col2.metric("Dissertações", len(list_dissertacoes(ppg_id)))
+col1.metric("Projetos", len(list_projects(ppg_id)))
+col2.metric("Dissertações", len(list_dissertations(ppg_id)))
 col3.metric("Artigos", len(list_articles(ppg_id)))
 col4.metric("PTTs", len(list_ptts(ppg_id)))
 
@@ -34,7 +28,7 @@ st.divider()
 
 st.subheader("Avaliações recentes")
 if can(role, "manage_evaluations"):
-    avaliacoes = list_avaliacoes(ppg_id)
+    avaliacoes = list_evaluations(ppg_id)
     if avaliacoes:
         df = pd.DataFrame(avaliacoes)
         st.dataframe(df, use_container_width=True)

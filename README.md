@@ -8,6 +8,20 @@ Aplicativo Streamlit para gestão de programas de pós-graduação (PPG) com bac
 - Conta Supabase (projeto com banco PostgreSQL)
 - Docker (opcional)
 
+## Modo Demonstração (sem Supabase)
+
+Use o modo demo para apresentar o app sem depender de credenciais externas. Os dados são simulados, ficam apenas na sessão atual e
+podem ser resetados a qualquer momento.
+
+- Ative executando: `DEMO_MODE=true streamlit run app.py`
+- No Streamlit Cloud, defina em **Secrets**:
+
+```
+DEMO_MODE = "true"
+```
+
+Limitações: os registros não persistem entre sessões/redeploys e o isolamento multi-tenant é apenas simulado.
+
 ## Configuração do Supabase
 
 1. Crie um novo projeto Supabase e habilite as extensões `pgcrypto` e `uuid-ossp`.

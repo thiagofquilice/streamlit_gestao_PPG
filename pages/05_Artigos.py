@@ -5,7 +5,7 @@ import pandas as pd
 import streamlit as st
 
 from components.forms import article_form
-from data import delete_record, list_articles
+from provider import list_articles, remove_article
 from rbac import can
 
 
@@ -26,7 +26,7 @@ if can_manage:
         st.dataframe(df, use_container_width=True)
         for artigo in artigos:
             if st.button("Excluir", key=f"del_art_{artigo['id']}"):
-                delete_record("artigos", artigo["id"])
+                remove_article(artigo["id"])
                 st.experimental_rerun()
     else:
         st.info("Nenhum artigo cadastrado.")

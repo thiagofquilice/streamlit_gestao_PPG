@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from data import delete_record, list_projetos, upsert_projeto
+from provider import list_projects, remove_project, upsert_project
 from rbac import can
 
 
@@ -18,13 +18,13 @@ if not (can(role, "manage_projects") or can(role, "view_projects")):
     st.error("Você não possui acesso a esta página.")
     st.stop()
 
-projetos = list_projetos(ppg_id)
+projetos = list_projects(ppg_id)
 if projetos:
     for projeto in projetos:
         cols = st.columns([3, 1])
         cols[0].write(f"**{projeto.get('titulo', '')}**\n\nLíder: {projeto.get('lider', 'N/D')}\n\nStatus: {projeto.get('status', 'N/D')}")
         if can(role, "manage_projects") and cols[1].button("Excluir", key=f"del_proj_{projeto['id']}"):
-            delete_record("projetos", projeto["id"])
+            remove_project(projeto["id"])
             st.experimental_rerun()
 else:
     st.info("Nenhum projeto cadastrado.")
@@ -36,6 +36,6 @@ if can(role, "manage_projects"):
         status = st.selectbox("Status", ["Planejado", "Em andamento", "Concluído"])
         submitted = st.form_submit_button("Salvar projeto")
     if submitted and titulo:
-        upsert_projeto(ppg_id, titulo, lider, status)
+        upsert_project(ppg_id, titulo, lider, status)
         st.success("Projeto cadastrado com sucesso.")
         st.experimental_rerun()
