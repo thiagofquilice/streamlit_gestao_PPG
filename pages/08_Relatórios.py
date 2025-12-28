@@ -4,7 +4,7 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
-from data import list_relatorios, save_relatorio
+from provider import list_reports, save_report
 from rbac import can
 
 
@@ -16,7 +16,7 @@ if not ppg_id:
     st.stop()
 
 if can(role, "view_reports"):
-    relatorios = list_relatorios(ppg_id)
+    relatorios = list_reports(ppg_id)
     if relatorios:
         st.dataframe(pd.DataFrame(relatorios), use_container_width=True)
     else:
@@ -30,6 +30,6 @@ if can(role, "manage_ppg_admin"):
         resumo = st.text_area("Resumo executivo")
         submitted = st.form_submit_button("Salvar relatório")
     if submitted and periodo:
-        save_relatorio(ppg_id, periodo, resumo)
+        save_report(ppg_id, periodo, resumo)
         st.success("Relatório salvo.")
         st.experimental_rerun()

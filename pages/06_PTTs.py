@@ -5,7 +5,7 @@ import pandas as pd
 import streamlit as st
 
 from components.forms import ptt_form
-from data import delete_record, list_ptts
+from provider import list_ptts, remove_ptt
 from rbac import can
 
 
@@ -26,7 +26,7 @@ if can_manage:
         st.dataframe(df, use_container_width=True)
         for ptt in ptts:
             if st.button("Excluir", key=f"del_ptt_{ptt['id']}"):
-                delete_record("ptts", ptt["id"])
+                remove_ptt(ptt["id"])
                 st.experimental_rerun()
     else:
         st.info("Nenhum PTT cadastrado.")

@@ -5,11 +5,11 @@ from typing import Dict, Iterable
 
 import streamlit as st
 
-from data import (
-    create_article,
-    create_avaliacao,
-    create_ptt,
+from provider import (
+    create_evaluation,
     create_user_and_membership,
+    upsert_article,
+    upsert_ptt,
     user_management_available,
 )
 
@@ -24,7 +24,7 @@ def article_form(ppg_id: str) -> None:
         submitted = st.form_submit_button("Salvar artigo")
     if submitted:
         try:
-            create_article(ppg_id, titulo, autores, int(ano), status)
+            upsert_article(ppg_id, titulo, autores, int(ano), status)
             st.success("Artigo salvo com sucesso.")
         except Exception as exc:
             st.error(f"Erro ao salvar artigo: {exc}")
@@ -39,7 +39,7 @@ def ptt_form(ppg_id: str) -> None:
         submitted = st.form_submit_button("Salvar PTT")
     if submitted:
         try:
-            create_ptt(ppg_id, tema, responsavel, status)
+            upsert_ptt(ppg_id, tema, responsavel, status)
             st.success("PTT salvo com sucesso.")
         except Exception as exc:
             st.error(f"Erro ao salvar PTT: {exc}")
@@ -64,7 +64,14 @@ def evaluation_form(ppg_id: str, ficha_id: str, avaliador_id: str, criterios: It
         submitted = st.form_submit_button("Salvar avaliação")
     if submitted:
         try:
-            avaliacao = create_avaliacao(ppg_id, ficha_id, avaliador_id, avaliavel, notas)
+            avaliacao = create_evaluation(
+                target_type="custom",
+                target_id=avaliavel,
+                form_id=ficha_id,
+                scores=notas,
+                ppg_id=ppg_id,
+                evaluator_id=avaliador_id,
+            )
             st.success(f"Avaliação registrada. Nota total: {avaliacao['total']:.2f}")
         except Exception as exc:
             st.error(f"Erro ao salvar avaliação: {exc}")
