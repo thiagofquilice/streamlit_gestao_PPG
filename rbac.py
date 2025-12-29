@@ -1,44 +1,21 @@
-"""Role based access helpers."""
+"""Simple role-based access control helper."""
 from __future__ import annotations
 
-from typing import Set
+import streamlit as st
 
-ROLE_PERMISSIONS: dict[str, Set[str]] = {
-    "coordenador": {
-        "view_overview",
-        "manage_ppg_admin",
-        "manage_users",
-        "manage_projects",
-        "manage_dissertations",
-        "manage_articles",
-        "manage_ptts",
-        "manage_evaluations",
-        "view_reports",
-    },
-    "professor": {
-        "view_overview",
-        "manage_projects",
-        "manage_dissertations",
-        "manage_articles",
-        "manage_ptts",
-        "manage_evaluations",
-        "view_reports",
-    },
-    "mestrando": {
-        "view_overview",
-        "view_projects",
-        "view_dissertations",
-        "submit_articles",
-        "submit_ptts",
-        "view_reports",
-    },
+
+ROLE_PERMS = {
+    "coordenador": {"ver", "criar", "editar", "apagar", "admin"},
+    "professor": {"ver", "criar", "editar"},
+    "mestrando": {"ver", "criar"},
 }
 
 
-def can(role: str, action: str) -> bool:
-    permissions = ROLE_PERMISSIONS.get(role, set())
-    return action in permissions or action in {"view_overview"}
+def can(action: str) -> bool:
+    role = st.session_state.get("role") if hasattr(st, "session_state") else None
+    if not role:
+        return False
+    return action in ROLE_PERMS.get(role, set())
 
 
-def allowed_actions(role: str) -> Set[str]:
-    return ROLE_PERMISSIONS.get(role, set())
+__all__ = ["can", "ROLE_PERMS"]

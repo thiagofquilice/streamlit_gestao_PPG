@@ -2,21 +2,15 @@ from __future__ import annotations
 
 import streamlit as st
 
-from auth import AuthState, get_auth_state, login
-import demo_data
-from provider import (
-    is_demo_mode,
-    load_memberships,
-    logout,
-    set_demo_auth,
-)
+from auth import AuthState, get_auth_state, login, logout
+from data import load_memberships
 
 
 def _set_page_config() -> None:
     st.set_page_config(page_title="PPG Manager", layout="wide")
 
 
-def _require_login() -> AuthState | None:
+def _require_login() -> AuthState:
     auth_state = get_auth_state()
     if auth_state:
         return auth_state
@@ -31,6 +25,7 @@ def _require_login() -> AuthState | None:
         try:
             auth_state = login(email, password)
             if auth_state:
+                st.session_state["auth"] = {"user_id": auth_state.user_id, "email": auth_state.email}
                 st.success("Autenticado com sucesso.")
                 st.experimental_rerun()
             else:
@@ -40,59 +35,31 @@ def _require_login() -> AuthState | None:
     st.stop()
 
 
-def _render_demo_banner() -> None:
-    st.info(
-        "Você está no modo demonstração: os dados são simulados e ficam apenas nesta sessão.\n\n"
-        "Para produção, desative DEMO_MODE e configure Supabase (SUPABASE_URL, SUPABASE_ANON_KEY)."
-    )
-    if st.button("Resetar dados da demo", type="secondary"):
-        demo_data.reset_demo_data()
-        st.success("Dados de demonstração reiniciados.")
-        st.experimental_rerun()
-
-
-def _demo_user_selector() -> AuthState:
-    demo_data.seed_demo_data()
-    ppgs = demo_data.list_ppgs()
-    ppg_names = {ppg["nome"]: ppg for ppg in ppgs}
-    ppg_label = st.selectbox("Selecione o PPG", list(ppg_names.keys()))
-    ppg = ppg_names[ppg_label]
-
-    roles = ["coordenador", "professor", "mestrando"]
-    role = st.selectbox("Perfil", roles)
-    users = demo_data.demo_users_by_ppg_and_role(ppg["id"], role)
-    if not users:
-        st.warning("Nenhum usuário de demonstração disponível para este perfil.")
-        st.stop()
-
-    user_options = {f"{u.get('nome')} ({u.get('email')})": u for u in users}
-    user_label = st.selectbox("Usuário", list(user_options.keys()))
-    user = user_options[user_label]
-
-    st.session_state["ppg_id"] = ppg["id"]
-    st.session_state["role"] = role
-    st.session_state["user"] = {"id": user.get("id"), "email": user.get("email"), "name": user.get("nome")}
-    return set_demo_auth(user.get("id", "demo"), user.get("email", "demo@demo"))
-
-
 def _select_membership(auth_state: AuthState) -> None:
     memberships = load_memberships(auth_state.user_id)
     if not memberships:
         st.warning("Seu usuário não possui vínculo com nenhum PPG. Solicite acesso ao coordenador.")
         st.stop()
 
+    if not st.session_state.get("ppg_id"):
+        first = memberships[0]
+        st.session_state["ppg_id"] = first.get("ppg_id")
+        st.session_state["role"] = first.get("role")
+
     options = {f"PPG {m['ppg_id']} ({m['role']})": m for m in memberships}
     selected_label = st.sidebar.selectbox("Selecione o PPG", list(options.keys()))
     membership = options[selected_label]
-    st.session_state["ppg_id"] = membership["ppg_id"]
-    st.session_state["role"] = membership["role"]
+    st.session_state["ppg_id"] = membership.get("ppg_id")
+    st.session_state["role"] = membership.get("role")
 
 
 def _render_sidebar(auth_state: AuthState) -> None:
     st.sidebar.title("PPG Manager")
     st.sidebar.caption(f"Usuário: {auth_state.email}")
     if st.session_state.get("ppg_id"):
-        st.sidebar.caption(f"PPG selecionado: {st.session_state['ppg_id']} | Perfil: {st.session_state.get('role')}")
+        st.sidebar.caption(
+            f"PPG selecionado: {st.session_state['ppg_id']} | Perfil: {st.session_state.get('role')}"
+        )
     if st.sidebar.button("Sair", use_container_width=True):
         logout()
         st.experimental_rerun()
@@ -111,15 +78,10 @@ def _render_sidebar(auth_state: AuthState) -> None:
 
 def main() -> None:
     _set_page_config()
-    demo_mode = is_demo_mode()
-    if demo_mode:
-        _render_demo_banner()
-        auth_state = _demo_user_selector()
-    else:
-        auth_state = _require_login()
-        _select_membership(auth_state)
-
+    auth_state = _require_login()
+    _select_membership(auth_state)
     _render_sidebar(auth_state)
+
     st.success("Selecione uma página na barra lateral para começar.")
 
 
