@@ -25,9 +25,9 @@ def _require_login() -> AuthState:
         try:
             auth_state = login(email, password)
             if auth_state:
-                st.session_state["auth"] = {"user_id": auth_state.user_id, "email": auth_state.email}
                 st.success("Autenticado com sucesso.")
                 st.experimental_rerun()
+
             else:
                 st.error("Credenciais inválidas. Verifique seu e-mail e senha.")
         except Exception as exc:  # pragma: no cover - feedback para o usuário
