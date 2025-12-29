@@ -6,8 +6,8 @@ import streamlit as st
 
 ROLE_PERMS = {
     "coordenador": {"ver", "criar", "editar", "apagar", "admin"},
-    "professor": {"ver", "criar", "editar"},
-    "mestrando": {"ver", "criar"},
+    "orientador": {"ver", "criar", "editar"},
+    "mestrando": {"ver", "criar", "editar"},
 }
 
 

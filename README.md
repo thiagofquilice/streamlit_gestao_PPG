@@ -22,7 +22,13 @@ Aplicação Streamlit multi-PPG com autenticação Supabase (Auth + Postgres + S
    INSERT INTO public.memberships (user_id, ppg_id, role)
    SELECT u.user_id, p.id, 'coordenador' FROM u, new_ppg p;
    ```
-5. (Opcional) Para adicionar professor/mestrando no mesmo PPG, insira novas linhas em `memberships` com o mesmo `ppg_id` e o `user_id` de cada usuário.
+5. Para adicionar orientador/mestrando no mesmo PPG, insira novas linhas em `memberships` com o mesmo `ppg_id` e o `user_id` de cada usuário:
+   ```sql
+   INSERT INTO public.memberships (user_id, ppg_id, role)
+   VALUES
+     ('<uuid-orientador>', '<uuid-ppg>', 'orientador'),
+     ('<uuid-mestrando>', '<uuid-ppg>', 'mestrando');
+   ```
 
 ## 2. Configurar secrets no Streamlit
 No repositório, o app busca as credenciais primeiro em variáveis de ambiente e depois em `st.secrets`:
@@ -55,25 +61,28 @@ Defina `SUPABASE_URL` e `SUPABASE_ANON_KEY` no ambiente ou em `.streamlit/secret
 - Botão **Sair** encerra a sessão.
 - RBAC simples via `rbac.can(action)`:
   - coordenador: ver/criar/editar/apagar/admin
-  - professor: ver/criar/editar
-  - mestrando: ver/criar
+- orientador: ver/criar/editar
+- mestrando: ver/criar/editar (limitado aos próprios registros via RLS)
 
 ### Páginas
 - **Admin do PPG (coordenador)**: CRUD de `research_lines` e `swot_items` filtrados por `ppg_id`.
-- **Artigos**: criação/listagem em `articles` (filtrados por `ppg_id`; `can('criar')`).
+- **Projetos**: CRUD com vínculos de orientadores/mestrandos, adesão do orientador e filtro por `ppg_id`.
+- **Artigos**: criação/edição em `articles` com vínculos opcionais a projeto, orientador e mestrando (filtrados por `ppg_id`; `can('criar')`).
 - Demais páginas: skeletons com placeholders, já protegidas por login e `ppg_id`.
 
 ## 6. Banco de dados e RLS
-- Tabelas mínimas: `ppgs`, `memberships`, `research_lines`, `swot_items`, `articles`.
-- Funções: `is_member(ppg uuid)`, `is_coordinator(ppg uuid)`.
+- Tabelas mínimas: `ppgs`, `memberships`, `research_lines`, `swot_items`, `projects`, `project_orientadores`, `project_mestrandos`, `articles` (com colunas `project_id`, `orientador_user_id`, `mestrando_user_id`).
+- Enum de roles: `member_role_v2` com `coordenador`, `orientador`, `mestrando` (migrando `professor` -> `orientador`).
+- Funções: `is_member(ppg uuid)`, `is_coordinator(ppg uuid)`, `user_role(ppg uuid)` e helpers de projeto.
 - Policies principais:
   - `ppg_select`: `ppgs` somente para membros.
-  - `memberships`: select/insert apenas para o próprio usuário (ajuste se quiser que coordenadores administrem).
-  - `research_lines` e `swot_items`: select para membros; insert/update apenas coordenador.
-  - `articles`: select para membros; insert/update para membros (MVP).
+  - `memberships`: select do próprio usuário ou de quem pertence ao mesmo PPG (para montar listas de vínculo).
+  - `projects`/associações: select para membros; insert/update para coordenador/orientador/mestrando dentro do PPG; delete apenas coordenador.
+  - `articles`: select/insert/update para membros dentro do PPG.
 
 ## 7. Checklist de testes
 - Login com usuário do Supabase (email/senha).
 - Confirmar `ppg_id`/`role` no topo e na barra lateral.
 - Na página **Admin do PPG**, criar/editar/excluir linhas de pesquisa e SWOT (somente coordenador).
-- Na página **Artigos**, criar um artigo e verificar listagem filtrada por `ppg_id`.
+- Na página **Projetos**, criar um projeto, vincular orientadores/mestrandos e testar botão de "aderir" como orientador.
+- Na página **Artigos**, criar/editar um artigo vinculando projeto, orientador e mestrando do mesmo PPG.
