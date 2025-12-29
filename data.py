@@ -14,6 +14,7 @@ It also assumes your tables/columns follow the names used below:
 - research_lines: id, ppg_id, name, description, created_at
 - swot_items: id, ppg_id, category, description, created_at
 - articles: id, ppg_id, title, authors, year, status, created_at
+- projects: id, ppg_id, title, description, start_date, end_date, status
 """
 
 from __future__ import annotations
@@ -41,12 +42,24 @@ def _client():
 
 def load_memberships(user_id: str) -> List[Dict[str, Any]]:
     """Return PPG memberships for the given user."""
-    # Avoid selecting columns that may not exist (id/created_at) unless you're sure they do.
     response = (
         _client()
         .table("memberships")
         .select("ppg_id, role")
         .eq("user_id", user_id)
+        .execute()
+    )
+    return response.data or []
+
+
+def list_ppg_members(ppg_id: str) -> List[Dict[str, Any]]:
+    """Return all memberships for a given PPG (role + user_id)."""
+    response = (
+        _client()
+        .table("memberships")
+        .select("user_id, role")
+        .eq("ppg_id", ppg_id)
+        .order("role")
         .execute()
     )
     return response.data or []
@@ -100,13 +113,73 @@ def delete_swot_item(item_id: Any) -> None:
     _client().table("swot_items").delete().eq("id", item_id).execute()
 
 
+# ---------- Projects ----------
+
+def list_projects(ppg_id: str) -> List[Dict[str, Any]]:
+    response = (
+        _client()
+        .table("projects")
+        .select("id, title, description, start_date, end_date, status, created_at, ppg_id")
+        .eq("ppg_id", ppg_id)
+        .order("created_at", desc=True)
+        .execute()
+    )
+    return response.data or []
+
+
+def add_project(payload: Dict[str, Any]) -> Dict[str, Any]:
+    response = _client().table("projects").insert(payload).execute()
+    return (response.data or [{}])[0]
+
+
+def update_project(project_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    response = _client().table("projects").update(payload).eq("id", project_id).execute()
+    return (response.data or [{}])[0]
+
+
+def delete_project(project_id: str) -> None:
+    _client().table("projects").delete().eq("id", project_id).execute()
+
+
+def list_project_orientadores(project_id: str) -> List[str]:
+    response = (
+        _client().table("project_orientadores").select("user_id").eq("project_id", project_id).execute()
+    )
+    return [row["user_id"] for row in (response.data or [])]
+
+
+def list_project_mestrandos(project_id: str) -> List[str]:
+    response = _client().table("project_mestrandos").select("user_id").eq("project_id", project_id).execute()
+    return [row["user_id"] for row in (response.data or [])]
+
+
+def set_project_orientadores(project_id: str, ppg_id: str, user_ids: List[str]) -> None:
+    client = _client()
+    client.table("project_orientadores").delete().eq("project_id", project_id).execute()
+    if not user_ids:
+        return
+    rows = [{"project_id": project_id, "user_id": uid, "ppg_id": ppg_id} for uid in user_ids]
+    client.table("project_orientadores").insert(rows).execute()
+
+
+def set_project_mestrandos(project_id: str, user_ids: List[str]) -> None:
+    client = _client()
+    client.table("project_mestrandos").delete().eq("project_id", project_id).execute()
+    if not user_ids:
+        return
+    rows = [{"project_id": project_id, "user_id": uid} for uid in user_ids]
+    client.table("project_mestrandos").insert(rows).execute()
+
+
 # ---------- Articles ----------
 
 def list_articles(ppg_id: str) -> List[Dict[str, Any]]:
     response = (
         _client()
         .table("articles")
-        .select("id, title, authors, year, status, created_at")
+        .select(
+            "id, title, authors, year, status, created_at, project_id, orientador_user_id, mestrando_user_id"
+        )
         .eq("ppg_id", ppg_id)
         .order("created_at", desc=True)
         .execute()
@@ -125,4 +198,3 @@ def upsert_article(data: Dict[str, Any]) -> Dict[str, Any]:
 
 
 __all__ = [name for name in globals() if not name.startswith("_")]
-
