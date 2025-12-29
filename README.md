@@ -26,11 +26,13 @@ Aplicação Streamlit multi-PPG com autenticação Supabase (Auth + Postgres + S
 
 ## 2. Configurar secrets no Streamlit
 No repositório, o app busca as credenciais primeiro em variáveis de ambiente e depois em `st.secrets`:
-```
-SUPABASE_URL = https://<project>.supabase.co
-SUPABASE_ANON_KEY = <anon-key>
+```toml
+SUPABASE_URL = "https://<project>.supabase.co"
+SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 ```
 No Streamlit Community Cloud, abra **Edit secrets** e cole as chaves acima.
+
+> Use a chave "anon public" do Supabase (JWT iniciado por `eyJ`). **Não** use `service_role` nem chaves `sb_publishable_...`.
 
 ## 3. Rodar localmente
 ```bash
