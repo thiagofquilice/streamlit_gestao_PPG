@@ -26,7 +26,7 @@ if linhas:
         cols[0].write(f"**{linha.get('name', 'Sem nome')}**\n\n{linha.get('description', '')}")
         if cols[1].button("Remover", key=f"del_linha_{linha['id']}"):
             delete_research_line(linha["id"])
-            st.experimental_rerun()
+            st.rerun()
 else:
     st.info("Nenhuma linha cadastrada.")
 
@@ -36,7 +36,7 @@ with st.form("form_linha"):
     submitted = st.form_submit_button("Adicionar linha")
 if submitted and nome:
     add_research_line(ppg_id, nome, descricao)
-    st.experimental_rerun()
+    st.rerun()
 
 st.divider()
 
@@ -56,7 +56,7 @@ for categoria, titulo in {
             cols[0].write(item.get("description", ""))
             if cols[1].button("Remover", key=f"del_swot_{item['id']}"):
                 delete_swot_item(item["id"])
-                st.experimental_rerun()
+                st.rerun()
     else:
         st.write("Sem registros")
 
@@ -75,4 +75,4 @@ with st.form("form_swot"):
     submitted_swot = st.form_submit_button("Adicionar entrada")
 if submitted_swot and descricao:
     add_swot_item(ppg_id, categoria, descricao)
-    st.experimental_rerun()
+    st.rerun()

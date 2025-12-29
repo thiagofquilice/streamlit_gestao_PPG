@@ -36,6 +36,6 @@ if can_create:
     if submitted and titulo:
         upsert_article({"ppg_id": ppg_id, "title": titulo, "authors": autores, "year": int(ano), "status": status})
         st.success("Artigo salvo com sucesso.")
-        st.experimental_rerun()
+        st.rerun()
 else:
     st.info("Seu perfil não permite cadastrar artigos.")
