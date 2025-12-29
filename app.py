@@ -26,7 +26,7 @@ def _require_login() -> AuthState:
             auth_state = login(email, password)
             if auth_state:
                 st.success("Autenticado com sucesso.")
-                st.experimental_rerun()
+                st.rerun()
 
             else:
                 st.error("Credenciais inválidas. Verifique seu e-mail e senha.")
@@ -62,7 +62,7 @@ def _render_sidebar(auth_state: AuthState) -> None:
         )
     if st.sidebar.button("Sair", use_container_width=True):
         logout()
-        st.experimental_rerun()
+        st.rerun()
 
     st.sidebar.divider()
     st.sidebar.header("Navegação")
