@@ -9,7 +9,7 @@ Aplicação Streamlit multi-PPG com autenticação Supabase (Auth + Postgres + S
 
 ## 1. Preparar o Supabase
 1. Crie um novo projeto no Supabase.
-2. No SQL Editor, execute o conteúdo de `db/ddl.sql` para criar tabelas, funções e policies.
+2. No SQL Editor, execute o conteúdo de `db/ddl.sql` para criar/atualizar tabelas, funções e policies (rode novamente sempre que atualizar o repositório).
 3. Em **Auth → Users → Add user**, crie um usuário (e-mail/senha) e marque **Confirm user**.
 4. Crie um PPG e vincule o usuário como coordenador (seed inicial):
    ```sql
@@ -66,23 +66,28 @@ Defina `SUPABASE_URL` e `SUPABASE_ANON_KEY` no ambiente ou em `.streamlit/secret
 
 ### Páginas
 - **Admin do PPG (coordenador)**: CRUD de `research_lines` e `swot_items` filtrados por `ppg_id`.
-- **Projetos**: CRUD com vínculos de orientadores/mestrandos, adesão do orientador e filtro por `ppg_id`.
-- **Artigos**: criação/edição em `articles` com vínculos opcionais a projeto, orientador e mestrando (filtrados por `ppg_id`; `can('criar')`).
-- Demais páginas: skeletons com placeholders, já protegidas por login e `ppg_id`.
+- **Projetos**: lista por PPG, criação/edição pelo coordenador/orientador, vínculos de orientadores/mestrandos e visualização das produções associadas (Dissertações/Artigos/PTTs). O vínculo "Projeto pai" é opcional.
+- **Artigos**, **Dissertações** e **PTTs**: criação/edição com seleção opcional de projeto do mesmo PPG para permitir a exibição em "Associados" na aba Projetos. Orientador/mestrando são listados via memberships/profiles do PPG.
+- Demais páginas seguem protegidas por login e `ppg_id`.
 
 ## 6. Banco de dados e RLS
-- Tabelas mínimas: `ppgs`, `memberships`, `research_lines`, `swot_items`, `projects`, `project_orientadores`, `project_mestrandos`, `articles` (com colunas `project_id`, `orientador_user_id`, `mestrando_user_id`).
+- Tabelas mínimas: `ppgs`, `memberships`, `profiles` (espelha `auth.users` para exibir nome/email), `research_lines`, `swot_items`, `projects` (colunas `name`, `description`, `parent_project_id`), `project_orientadores`, `project_mestrandos`, `articles`, `dissertations`, `ptts`.
 - Enum de roles: `member_role_v2` com `coordenador`, `orientador`, `mestrando` (migrando `professor` -> `orientador`).
 - Funções: `is_member(ppg uuid)`, `is_coordinator(ppg uuid)`, `user_role(ppg uuid)` e helpers de projeto.
 - Policies principais:
   - `ppg_select`: `ppgs` somente para membros.
-  - `memberships`: select do próprio usuário ou de quem pertence ao mesmo PPG (para montar listas de vínculo).
-  - `projects`/associações: select para membros; insert/update para coordenador/orientador/mestrando dentro do PPG; delete apenas coordenador.
-  - `articles`: select/insert/update para membros dentro do PPG.
+  - `memberships`: select do próprio usuário ou de quem pertence ao mesmo PPG (para montar listas de vínculo) e seed manual.
+  - `profiles`: select permitido para quem compartilha um PPG via memberships.
+  - `projects`: select para membros; insert/update para coordenador ou orientador; delete apenas coordenador.
+  - `project_orientadores`/`project_mestrandos`: select para membros do PPG do projeto; insert/delete para coordenador/orientador.
+  - `articles`/`dissertations`/`ptts`: select/insert/update para membros dentro do PPG.
 
 ## 7. Checklist de testes
 - Login com usuário do Supabase (email/senha).
 - Confirmar `ppg_id`/`role` no topo e na barra lateral.
 - Na página **Admin do PPG**, criar/editar/excluir linhas de pesquisa e SWOT (somente coordenador).
-- Na página **Projetos**, criar um projeto, vincular orientadores/mestrandos e testar botão de "aderir" como orientador.
-- Na página **Artigos**, criar/editar um artigo vinculando projeto, orientador e mestrando do mesmo PPG.
+- Na página **Projetos**:
+  - Coordenador cria projeto e vincula orientadores/mestrandos.
+  - Orientador visualiza e edita vínculos do projeto do PPG.
+  - Mestrando visualiza lista e seção de associados.
+- Na página **Artigos/Dissertações/PTTs**, criar/editar vinculando `project_id` do mesmo PPG e validar que aparecem em "Associados" na aba Projetos.

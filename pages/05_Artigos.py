@@ -18,11 +18,11 @@ can_create = can("criar")
 can_edit = can("editar")
 
 projects = list_projects(ppg_id)
-project_options = {p["id"]: p.get("title", "") for p in projects}
+project_options = {p["id"]: p.get("name", "") for p in projects}
 
 members = list_ppg_members(ppg_id)
-orientadores = {m["user_id"]: f"{m['user_id']} (orientador)" for m in members if m.get("role") == "orientador"}
-mestrandos = {m["user_id"]: f"{m['user_id']} (mestrando)" for m in members if m.get("role") == "mestrando"}
+orientadores = {m["user_id"]: m.get("display_name") or m["user_id"] for m in members if m.get("role") == "orientador"}
+mestrandos = {m["user_id"]: m.get("display_name") or m["user_id"] for m in members if m.get("role") == "mestrando"}
 
 artigos = list_articles(ppg_id)
 if artigos:
