@@ -1,18 +1,19 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
-import datetime as dt
 from typing import List
 
-import pandas as pd
 import streamlit as st
 
 from data import (
-    add_project,
+    create_project,
     delete_project,
+    get_project_mestrandos,
+    get_project_orientadores,
     list_ppg_members,
-    list_project_mestrandos,
-    list_project_orientadores,
+    list_project_articles,
+    list_project_dissertations,
+    list_project_ptts,
     list_projects,
     set_project_mestrandos,
     set_project_orientadores,
@@ -23,7 +24,6 @@ from rbac import can
 st.title("Projetos")
 ppg_id = st.session_state.get("ppg_id")
 role = st.session_state.get("role")
-user_id = st.session_state.get("auth", {}).get("user_id")
 if not ppg_id or not role:
     st.warning("Faça login e selecione um PPG para continuar.")
     st.stop()
@@ -31,160 +31,112 @@ if not ppg_id or not role:
 members = list_ppg_members(ppg_id)
 orientadores = [m for m in members if m.get("role") == "orientador"]
 mestrandos = [m for m in members if m.get("role") == "mestrando"]
+member_labels = {m["user_id"]: m.get("display_name") or m["user_id"] for m in members}
 
-
-def _options_dict(filtered_members: List[dict]) -> dict:
-    return {m["user_id"]: f"{m['user_id']} ({m['role']})" for m in filtered_members}
-
-
-def _date_input(label: str, value: str | None, key: str):
-    parsed = dt.date.fromisoformat(value) if value else None
-    return st.date_input(label, value=parsed, key=key)
-
-
-can_create = can("criar")
-can_edit = can("editar")
-can_delete = can("apagar")
+can_manage_projects = role in ("coordenador", "orientador")
 
 projects = list_projects(ppg_id)
-if projects:
-    st.subheader("Projetos cadastrados")
-    summary_rows = []
-    orientador_map = {p["id"]: list_project_orientadores(p["id"]) for p in projects}
-    mestrando_map = {p["id"]: list_project_mestrandos(p["id"]) for p in projects}
-    for p in projects:
-        summary_rows.append(
-            {
-                "Título": p.get("title"),
-                "Status": p.get("status") or "-",
-                "Orientadores": len(orientador_map.get(p["id"], [])),
-                "Mestrandos": len(mestrando_map.get(p["id"], [])),
-                "Início": p.get("start_date"),
-                "Fim": p.get("end_date"),
-            }
+project_options = {p["id"]: p.get("name", "") for p in projects}
+
+if can_manage_projects:
+    st.subheader("Cadastrar projeto")
+    with st.form("form_new_project"):
+        name = st.text_input("Nome do projeto")
+        description = st.text_area("Descrição")
+        parent_project_id = st.selectbox(
+            "Vínculo a um projeto (opcional)",
+            [None] + list(project_options.keys()),
+            format_func=lambda pid: project_options.get(pid, "Sem vínculo") if pid else "Sem vínculo",
         )
-    st.dataframe(pd.DataFrame(summary_rows), use_container_width=True)
+        submitted = st.form_submit_button("Salvar projeto")
+    if submitted:
+        if not name:
+            st.error("Nome é obrigatório.")
+        else:
+            create_project(ppg_id, name, description or None, parent_project_id)
+            st.success("Projeto criado com sucesso.")
+            st.experimental_rerun()
+else:
+    st.info("Seu perfil não permite criar ou editar projetos. Visualização somente de leitura.")
 
-    for p in projects:
-        with st.expander(p.get("title", "(sem título)"), expanded=False):
-            st.write(p.get("description") or "Sem descrição.")
-            st.caption(f"Status: {p.get('status') or 'não informado'}")
-            project_orientadores = orientador_map.get(p["id"], [])
-            project_mestrandos = mestrando_map.get(p["id"], [])
-            st.write(
-                "Orientadores:",
-                ", ".join(project_orientadores) if project_orientadores else "Nenhum vinculado",
-            )
-            st.write(
-                "Mestrandos:",
-                ", ".join(project_mestrandos) if project_mestrandos else "Nenhum vinculado",
-            )
+st.divider()
+if projects:
+    st.subheader("Projetos do PPG")
+    for project in projects:
+        orientadores_atual = [o["user_id"] for o in get_project_orientadores(project["id"])]
+        mestrandos_atual = [m["user_id"] for m in get_project_mestrandos(project["id"])]
+        parent_name = project_options.get(project.get("parent_project_id"))
+        with st.expander(project.get("name") or "(Sem nome)", expanded=False):
+            st.write(project.get("description") or "Sem descrição.")
+            st.caption(f"Projeto relacionado: {parent_name or 'Nenhum'}")
 
-            if role == "orientador" and user_id and user_id not in project_orientadores:
-                if st.button(
-                    "Aderir como orientador", key=f"join-{p['id']}", use_container_width=True
-                ):
-                    combined = list(dict.fromkeys(project_orientadores + [user_id]))
-                    set_project_orientadores(p["id"], ppg_id, combined)
-                    st.success("Vínculo adicionado ao projeto.")
-                    st.experimental_rerun()
-
-            if can_edit:
-                with st.form(f"edit_project_{p['id']}"):
-                    title = st.text_input("Título", value=p.get("title", ""))
-                    description = st.text_area("Descrição", value=p.get("description") or "")
-                    status = st.selectbox(
-                        "Status",
-                        ["em_andamento", "concluido", "planejado"],
-                        index=["em_andamento", "concluido", "planejado"].index(
-                            p.get("status") or "em_andamento"
-                        ),
+            if can_manage_projects:
+                with st.form(f"manage-{project['id']}"):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        name_edit = st.text_input("Nome", value=project.get("name") or "")
+                        parent_edit = st.selectbox(
+                            "Projeto pai (opcional)",
+                            [None] + [pid for pid in project_options.keys() if pid != project["id"]],
+                            format_func=lambda pid: project_options.get(pid, "Sem vínculo") if pid else "Sem vínculo",
+                            index=(
+                                [None] + [pid for pid in project_options.keys() if pid != project["id"]]
+                            ).index(project.get("parent_project_id"))
+                            if project.get("parent_project_id") in project_options
+                            else 0,
+                        )
+                    with col2:
+                        description_edit = st.text_area(
+                            "Descrição", value=project.get("description") or "", height=120
+                        )
+                    orientador_selected = st.multiselect(
+                        "Orientadores", options=[m["user_id"] for m in orientadores], default=orientadores_atual,
+                        format_func=lambda uid: member_labels.get(uid, uid),
                     )
-                    start_date = _date_input("Data de início", p.get("start_date"), key=f"start-{p['id']}")
-                    end_date = _date_input("Data de término", p.get("end_date"), key=f"end-{p['id']}")
-                    orientador_options = _options_dict(orientadores)
-                    mestrando_options = _options_dict(mestrandos)
-                    orientadores_selected = st.multiselect(
-                        "Orientadores vinculados",
-                        options=list(orientador_options.keys()),
-                        default=project_orientadores,
-                        format_func=lambda uid: orientador_options.get(uid, uid),
-                        help="Inclua pelo menos um orientador responsável pelo projeto.",
+                    mestrando_selected = st.multiselect(
+                        "Mestrandos", options=[m["user_id"] for m in mestrandos], default=mestrandos_atual,
+                        format_func=lambda uid: member_labels.get(uid, uid),
                     )
-                    mestrandos_selected = st.multiselect(
-                        "Mestrandos vinculados",
-                        options=list(mestrando_options.keys()),
-                        default=project_mestrandos,
-                        format_func=lambda uid: mestrando_options.get(uid, uid),
+                    submitted_edit = st.form_submit_button("Salvar alterações")
+                if submitted_edit:
+                    update_project(
+                        project["id"],
+                        {
+                            "name": name_edit,
+                            "description": description_edit,
+                            "parent_project_id": parent_edit,
+                        },
                     )
-                    submitted = st.form_submit_button("Salvar alterações")
-                if submitted:
-                    payload = {
-                        "title": title,
-                        "description": description,
-                        "status": status,
-                        "start_date": start_date.isoformat() if start_date else None,
-                        "end_date": end_date.isoformat() if end_date else None,
-                    }
-                    update_project(p["id"], payload)
-                    set_project_orientadores(p["id"], ppg_id, orientadores_selected)
-                    set_project_mestrandos(p["id"], mestrandos_selected)
+                    set_project_orientadores(project["id"], orientador_selected)
+                    set_project_mestrandos(project["id"], mestrando_selected)
                     st.success("Projeto atualizado.")
                     st.experimental_rerun()
+            else:
+                st.write(
+                    "Orientadores:",
+                    ", ".join([member_labels.get(uid, uid) for uid in orientadores_atual])
+                    or "Nenhum orientador vinculado",
+                )
+                st.write(
+                    "Mestrandos:",
+                    ", ".join([member_labels.get(uid, uid) for uid in mestrandos_atual])
+                    or "Nenhum mestrando vinculado",
+                )
 
-            if can_delete:
+            st.markdown("**Associados**")
+            diss = list_project_dissertations(project["id"])
+            arts = list_project_articles(project["id"])
+            ptts = list_project_ptts(project["id"])
+            st.write("Dissertações:", ", ".join([d.get("title", "") for d in diss]) or "Nenhuma")
+            st.write("Artigos:", ", ".join([a.get("title", "") for a in arts]) or "Nenhum")
+            st.write("PTTs:", ", ".join([p.get("title", "") for p in ptts]) or "Nenhum")
+
+            if can("apagar"):
                 if st.button(
-                    "Excluir projeto",
-                    key=f"delete-{p['id']}",
-                    use_container_width=True,
-                    type="primary",
+                    "Excluir projeto", key=f"delete-{project['id']}", type="primary", use_container_width=True
                 ):
-                    delete_project(p["id"])
+                    delete_project(project["id"])
                     st.success("Projeto removido.")
                     st.experimental_rerun()
 else:
     st.info("Nenhum projeto cadastrado para este PPG.")
-
-if can_create:
-    st.divider()
-    st.subheader("Cadastrar novo projeto")
-    with st.form("form_new_project"):
-        title = st.text_input("Título do projeto")
-        description = st.text_area("Descrição")
-        status = st.selectbox("Status", ["em_andamento", "concluido", "planejado"], index=0)
-        start_date = st.date_input("Data de início", value=None)
-        end_date = st.date_input("Data de término", value=None)
-        orientador_options = _options_dict(orientadores)
-        mestrando_options = _options_dict(mestrandos)
-        orientadores_selected = st.multiselect(
-            "Orientadores",
-            options=list(orientador_options.keys()),
-            format_func=lambda uid: orientador_options.get(uid, uid),
-        )
-        mestrandos_selected = st.multiselect(
-            "Mestrandos",
-            options=list(mestrando_options.keys()),
-            format_func=lambda uid: mestrando_options.get(uid, uid),
-        )
-        submitted = st.form_submit_button("Criar projeto")
-
-    if submitted:
-        if not title:
-            st.error("Título é obrigatório.")
-        else:
-            payload = {
-                "ppg_id": ppg_id,
-                "title": title,
-                "description": description,
-                "status": status,
-                "start_date": start_date.isoformat() if start_date else None,
-                "end_date": end_date.isoformat() if end_date else None,
-            }
-            project = add_project(payload)
-            if project.get("id"):
-                set_project_orientadores(project["id"], ppg_id, orientadores_selected)
-                set_project_mestrandos(project["id"], mestrandos_selected)
-            st.success("Projeto criado com sucesso.")
-            st.experimental_rerun()
-else:
-    st.info("Seu perfil não permite criar novos projetos.")

@@ -2,6 +2,7 @@
 -- Basic multi-tenant structure with RLS policies.
 
 create extension if not exists "uuid-ossp";
+create extension if not exists "pgcrypto";
 
 -- ---------------------------------------------------------------------------
 -- Roles enum (v2) to support coordenador, orientador e mestrando.
@@ -50,20 +51,27 @@ create table if not exists public.swot_items (
 );
 
 create table if not exists public.projects (
-    id uuid primary key default uuid_generate_v4(),
+    id uuid primary key default gen_random_uuid(),
     ppg_id uuid not null references public.ppgs(id) on delete cascade,
-    title text not null,
+    name text not null,
     description text,
-    start_date date,
-    end_date date,
-    status text,
+    parent_project_id uuid references public.projects(id),
     created_at timestamptz default now()
 );
+
+-- Migrate legacy columns if the table existed with older column names
+alter table public.projects add column if not exists title text;
+alter table public.projects add column if not exists start_date date;
+alter table public.projects add column if not exists end_date date;
+alter table public.projects add column if not exists status text;
+alter table public.projects add column if not exists name text;
+alter table public.projects add column if not exists parent_project_id uuid references public.projects(id);
+update public.projects set name = coalesce(name, title) where name is null;
+alter table public.projects alter column name set not null;
 
 create table if not exists public.project_orientadores (
     project_id uuid not null references public.projects(id) on delete cascade,
     user_id uuid not null references auth.users(id) on delete cascade,
-    ppg_id uuid not null references public.ppgs(id) on delete cascade,
     created_at timestamptz default now(),
     primary key (project_id, user_id)
 );
@@ -87,6 +95,54 @@ create table if not exists public.articles (
     mestrando_user_id uuid references auth.users(id),
     created_at timestamptz default now()
 );
+
+create table if not exists public.dissertations (
+    id uuid primary key default gen_random_uuid(),
+    ppg_id uuid not null references public.ppgs(id) on delete cascade,
+    title text not null,
+    summary text,
+    project_id uuid references public.projects(id),
+    created_at timestamptz default now()
+);
+
+create table if not exists public.ptts (
+    id uuid primary key default gen_random_uuid(),
+    ppg_id uuid not null references public.ppgs(id) on delete cascade,
+    title text not null,
+    summary text,
+    project_id uuid references public.projects(id),
+    created_at timestamptz default now()
+);
+
+alter table public.articles add column if not exists project_id uuid references public.projects(id);
+alter table public.articles add column if not exists orientador_user_id uuid references auth.users(id);
+alter table public.articles add column if not exists mestrando_user_id uuid references auth.users(id);
+
+-- Profiles (mirror of auth.users for safe UI display)
+create table if not exists public.profiles (
+    user_id uuid primary key references auth.users(id) on delete cascade,
+    email text,
+    display_name text,
+    created_at timestamptz default now()
+);
+
+create or replace function public.handle_new_user()
+returns trigger
+security definer
+language plpgsql
+as $$
+begin
+  insert into public.profiles (user_id, email, display_name)
+  values (new.id, new.email, coalesce(new.raw_user_meta_data->>'full_name', new.email))
+  on conflict (user_id) do update set email = excluded.email;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user();
 
 -- Helper functions for RLS --------------------------------------------------
 create or replace function public.is_member(target_ppg uuid)
@@ -168,6 +224,9 @@ alter table public.projects enable row level security;
 alter table public.project_orientadores enable row level security;
 alter table public.project_mestrandos enable row level security;
 alter table public.articles enable row level security;
+alter table public.dissertations enable row level security;
+alter table public.ptts enable row level security;
+alter table public.profiles enable row level security;
 
 -- Policies -----------------------------------------------------------------
 create policy if not exists ppg_select on public.ppgs
@@ -201,42 +260,41 @@ create policy if not exists swot_items_update on public.swot_items
 for update using (is_coordinator(ppg_id));
 
 create policy if not exists projects_select on public.projects
-for select using (is_project_member(id));
+for select using (is_member(ppg_id));
 
 create policy if not exists projects_insert on public.projects
 for insert with check (
-  is_member(ppg_id) and user_role(ppg_id) in ('coordenador','orientador','mestrando')
+  is_member(ppg_id) and user_role(ppg_id) in ('coordenador','orientador')
 );
 
 create policy if not exists projects_update on public.projects
-for update using (
-  is_coordinator(ppg_id)
-  or is_project_orientador(id)
-  or is_project_mestrando(id)
-);
+for update using (is_member(ppg_id) and user_role(ppg_id) in ('coordenador','orientador'))
+with check (is_member(ppg_id) and user_role(ppg_id) in ('coordenador','orientador'));
 
 create policy if not exists projects_delete on public.projects
-for delete using (is_coordinator(ppg_id));
+for delete using (is_member(ppg_id) and user_role(ppg_id) = 'coordenador');
 
 create policy if not exists project_orientadores_select on public.project_orientadores
-for select using (is_member(ppg_id));
+for select using (
+  exists (
+    select 1 from public.projects p where p.id = project_id and is_member(p.ppg_id)
+  )
+);
 
 create policy if not exists project_orientadores_insert on public.project_orientadores
 for insert with check (
-  is_member(ppg_id)
-  and (
-    user_role(ppg_id) = 'coordenador'
-    or (user_role(ppg_id) = 'orientador' and auth.uid() = user_id)
+  exists (
+    select 1 from public.projects p where p.id = project_id and is_member(p.ppg_id)
   )
+  and user_role((select ppg_id from public.projects p where p.id = project_id)) in ('coordenador','orientador')
 );
 
 create policy if not exists project_orientadores_delete on public.project_orientadores
 for delete using (
-  is_member(ppg_id)
-  and (
-    user_role(ppg_id) = 'coordenador'
-    or auth.uid() = user_id
+  exists (
+    select 1 from public.projects p where p.id = project_id and is_member(p.ppg_id)
   )
+  and user_role((select ppg_id from public.projects p where p.id = project_id)) in ('coordenador','orientador')
 );
 
 create policy if not exists project_mestrandos_select on public.project_mestrandos
@@ -247,25 +305,13 @@ for select using (
 create policy if not exists project_mestrandos_insert on public.project_mestrandos
 for insert with check (
   exists (select 1 from public.projects p where p.id = project_id and is_member(p.ppg_id))
-  and (
-    auth.uid() = user_id
-    or exists (
-      select 1 from public.projects p2
-      where p2.id = project_id and user_role(p2.ppg_id) in ('coordenador','orientador')
-    )
-  )
+  and user_role((select ppg_id from public.projects p where p.id = project_id)) in ('coordenador','orientador')
 );
 
 create policy if not exists project_mestrandos_delete on public.project_mestrandos
 for delete using (
   exists (select 1 from public.projects p where p.id = project_id and is_member(p.ppg_id))
-  and (
-    auth.uid() = user_id
-    or exists (
-      select 1 from public.projects p2
-      where p2.id = project_id and user_role(p2.ppg_id) = 'coordenador'
-    )
-  )
+  and user_role((select ppg_id from public.projects p where p.id = project_id)) in ('coordenador','orientador')
 );
 
 create policy if not exists articles_select on public.articles
@@ -277,4 +323,32 @@ for insert with check (is_member(ppg_id));
 create policy if not exists articles_update on public.articles
 for update using (
   is_member(ppg_id)
+);
+
+create policy if not exists dissertations_select on public.dissertations
+for select using (is_member(ppg_id));
+
+create policy if not exists dissertations_insert on public.dissertations
+for insert with check (is_member(ppg_id));
+
+create policy if not exists dissertations_update on public.dissertations
+for update using (is_member(ppg_id));
+
+create policy if not exists ptts_select on public.ptts
+for select using (is_member(ppg_id));
+
+create policy if not exists ptts_insert on public.ptts
+for insert with check (is_member(ppg_id));
+
+create policy if not exists ptts_update on public.ptts
+for update using (is_member(ppg_id));
+
+create policy if not exists profiles_select on public.profiles
+for select using (
+  exists (
+    select 1
+    from public.memberships m_target
+    join public.memberships m_self on m_self.ppg_id = m_target.ppg_id and m_self.user_id = auth.uid()
+    where m_target.user_id = profiles.user_id
+  )
 );
