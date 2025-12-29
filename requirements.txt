@@ -1,4 +1,5 @@
 streamlit==1.39.0
 supabase==2.6.0
-python-dotenv
 pandas
+python-dotenv
+SQLAlchemy>=2.0
