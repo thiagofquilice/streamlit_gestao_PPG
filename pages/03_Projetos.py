@@ -112,19 +112,20 @@ if projects:
                     )
                     submitted_edit = st.form_submit_button("Salvar alterações")
                 if submitted_edit:
-                        update_project(
-                            project["id"],
-                            {
-                                "name": name_edit,
-                                "description": description_edit,
-                                "line_id": line_edit,
-                                "status": status_edit,
-                            },
-                        )
+                    update_project(
+                        project["id"],
+                        {
+                            "name": name_edit,
+                            "description": description_edit,
+                            "line_id": line_edit,
+                            "status": status_edit,
+                        },
+                    )
                     set_project_orientadores(project["id"], orientador_selected)
                     set_project_mestrandos(project["id"], mestrando_selected)
                     st.success("Projeto atualizado.")
-                    st.experimental_rerun()
+                    st.rerun()
+
             else:
                 st.write(
                     "Orientadores:",
