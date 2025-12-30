@@ -3,9 +3,6 @@ from __future__ import annotations
 from typing import Dict
 
 from demo_seed import ensure_demo_db
-
-ensure_demo_db()
-
 import streamlit as st
 
 from demo_context import current_person, current_ppg, current_profile
@@ -19,6 +16,10 @@ from data import (
     list_ptts,
     list_target_evaluations,
 )
+from ui_style import apply_modern_white_theme
+
+ensure_demo_db()
+apply_modern_white_theme()
 
 st.title("Avaliações")
 ppg_id = current_ppg()

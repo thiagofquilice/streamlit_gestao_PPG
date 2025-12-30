@@ -2,14 +2,15 @@
 from __future__ import annotations
 
 from demo_seed import ensure_demo_db
-
-ensure_demo_db()
-
 import streamlit as st
 
 from demo_context import current_ppg, current_profile
 from data import list_ppgs, update_ppg
 from rbac import can
+from ui_style import apply_modern_white_theme
+
+ensure_demo_db()
+apply_modern_white_theme()
 
 st.title("Administração do PPG")
 ppg_id = current_ppg()

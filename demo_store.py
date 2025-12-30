@@ -9,6 +9,22 @@ import streamlit as st
 from demo_context import current_ppg
 from demo_seed import ensure_demo_db, init_demo_db
 
+STANDARD_STATUSES = {"planejado", "em_execucao", "concluido"}
+STATUS_SYNONYMS = {
+    "em_andamento": "em_execucao",
+    "em andamento": "em_execucao",
+    "andamento": "em_execucao",
+    "em_curso": "em_execucao",
+    "em curso": "em_execucao",
+    "submetido": "em_execucao",
+    "em_revisao": "em_execucao",
+    "planejamento": "planejado",
+    "rascunho": "planejado",
+    "aceito": "concluido",
+    "publicado": "concluido",
+    "finalizado": "concluido",
+}
+
 
 def get_db() -> Dict[str, List[dict]]:
     ensure_demo_db()
@@ -59,15 +75,24 @@ def list_projects(ppg_id: str) -> List[dict]:
 
 
 def list_dissertations(ppg_id: str) -> List[dict]:
-    return _filter_by_ppg(get_db().get("dissertations", []), ppg_id)
+    return [
+        _ensure_standard_status(row, "dissertations")
+        for row in _filter_by_ppg(get_db().get("dissertations", []), ppg_id)
+    ]
 
 
 def list_articles(ppg_id: str) -> List[dict]:
-    return _filter_by_ppg(get_db().get("articles", []), ppg_id)
+    return [
+        _ensure_standard_status(row, "articles")
+        for row in _filter_by_ppg(get_db().get("articles", []), ppg_id)
+    ]
 
 
 def list_ptts(ppg_id: str) -> List[dict]:
-    return _filter_by_ppg(get_db().get("ptts", []), ppg_id)
+    return [
+        _ensure_standard_status(row, "ptts")
+        for row in _filter_by_ppg(get_db().get("ptts", []), ppg_id)
+    ]
 
 
 def get_evaluation_forms() -> dict:
@@ -143,6 +168,7 @@ def ptts_by_dissertation(dissertation_id: str) -> List[dict]:
 
 
 def _upsert(collection: str, payload: dict) -> dict:
+    payload = _ensure_standard_status(payload, collection)
     db = get_db()
     rows = db.setdefault(collection, [])
     existing = get_by_id(collection, payload.get("id"))
@@ -156,6 +182,17 @@ def _upsert(collection: str, payload: dict) -> dict:
 def _delete(collection: str, entity_id: str) -> None:
     db = get_db()
     db[collection] = [row for row in db.get(collection, []) if row.get("id") != entity_id]
+
+
+def _ensure_standard_status(payload: dict, collection: str) -> dict:
+    if collection not in {"dissertations", "articles", "ptts"}:
+        return payload
+    status_value = str(payload.get("status") or "").lower()
+    normalized = STATUS_SYNONYMS.get(status_value, status_value)
+    if normalized not in STANDARD_STATUSES:
+        normalized = "planejado"
+    payload["status"] = normalized
+    return payload
 
 
 __all__ = [

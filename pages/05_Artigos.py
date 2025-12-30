@@ -2,9 +2,6 @@
 from __future__ import annotations
 
 from demo_seed import ensure_demo_db
-
-ensure_demo_db()
-
 import streamlit as st
 
 from demo_context import current_ppg, current_profile
@@ -16,7 +13,22 @@ from data import (
     list_projects,
     list_research_lines,
     list_target_evaluations,
+    upsert_article,
 )
+from ui_style import apply_modern_white_theme
+
+ensure_demo_db()
+apply_modern_white_theme()
+
+STATUS_OPTIONS = ["planejado", "em_execucao", "concluido"]
+
+
+def status_selector(label: str, value: str | None, key: str) -> str:
+    default_value = value if value in STATUS_OPTIONS else STATUS_OPTIONS[0]
+    segmented = getattr(st, "segmented_control", None)
+    if segmented:
+        return segmented(label, STATUS_OPTIONS, default=default_value, key=key)
+    return st.radio(label, STATUS_OPTIONS, horizontal=True, index=STATUS_OPTIONS.index(default_value), key=key)
 
 st.title("Artigos")
 ppg_id = current_ppg()
@@ -43,7 +55,18 @@ for article in articles:
             f"Projeto: {projects.get(article.get('project_id')) or 'Sem projeto'} | "
             f"Linha: {lines.get(article.get('line_id')) or 'Sem linha'} | Ano: {article.get('year') or 'N/A'}"
         )
-        st.caption(f"Status: {article.get('status', 'N/A')} | Dissertação: {disserts.get(article.get('dissertation_id')) or 'Sem vínculo'}")
+        st.caption(
+            f"Status: {article.get('status') or 'planejado'} | Dissertação: {disserts.get(article.get('dissertation_id')) or 'Sem vínculo'}"
+        )
+
+        with st.form(f"article-status-{article['id']}"):
+            status = status_selector("Status", article.get("status"), key=f"article-status-control-{article['id']}")
+            submitted_status = st.form_submit_button("Atualizar status", use_container_width=True)
+
+        if submitted_status:
+            upsert_article({**article, "status": status})
+            st.success("Status do artigo atualizado.")
+            st.rerun()
 
         count, avg, last_score, last_date = evaluation_stats("article", article["id"])
         st.markdown(

@@ -2,16 +2,25 @@
 from __future__ import annotations
 
 from demo_seed import ensure_demo_db
-
-ensure_demo_db()
-
 import streamlit as st
 
 from data import list_dissertations, list_ppg_members, list_projects, list_research_lines, upsert_dissertation
 from demo_context import current_ppg, current_profile
 from rbac import can
+from ui_style import apply_modern_white_theme
 
 ensure_demo_db()
+apply_modern_white_theme()
+
+STATUS_OPTIONS = ["planejado", "em_execucao", "concluido"]
+
+
+def status_selector(label: str, value: str | None, key: str) -> str:
+    default_value = value if value in STATUS_OPTIONS else STATUS_OPTIONS[0]
+    segmented = getattr(st, "segmented_control", None)
+    if segmented:
+        return segmented(label, STATUS_OPTIONS, default=default_value, key=key)
+    return st.radio(label, STATUS_OPTIONS, horizontal=True, index=STATUS_OPTIONS.index(default_value), key=key)
 
 st.title("Dissertações")
 ppg_id = current_ppg()
@@ -41,6 +50,7 @@ if items:
             st.write(diss.get("summary") or "Sem resumo")
             st.caption(f"Projeto: {project_options.get(diss.get('project_id')) or 'Sem projeto'}")
             st.caption(f"Linha: {line_options.get(diss.get('line_id')) or 'Sem linha'} | Ano: {diss.get('year') or 'N/A'}")
+            st.caption(f"Status: {diss.get('status') or 'planejado'}")
             st.write("Orientador:", orientadores.get(diss.get("orientador_id")) or "Não definido")
             st.write("Mestrando:", mestrandos.get(diss.get("mestrando_id")) or "Não definido")
 
@@ -81,7 +91,8 @@ if items:
                         if diss.get("mestrando_id") in mestrandos
                         else 0,
                     )
-                    submitted = st.form_submit_button("Salvar")
+                    status = status_selector("Status", diss.get("status"), key=f"status-{diss['id']}")
+                    submitted = st.form_submit_button("Salvar", use_container_width=True)
                 if submitted and title:
                     upsert_dissertation(
                         {
@@ -94,6 +105,7 @@ if items:
                             "line_id": line_id,
                             "orientador_id": orientador_id,
                             "mestrando_id": mestrando_id,
+                            "status": status,
                             "artigos_ids": diss.get("artigos_ids", []),
                             "ptts_ids": diss.get("ptts_ids", []),
                         }
@@ -130,7 +142,8 @@ if can_create:
             [None] + list(mestrandos.keys()),
             format_func=lambda uid: mestrandos.get(uid, "Sem mestrando") if uid else "Sem mestrando",
         )
-        submitted = st.form_submit_button("Salvar")
+        status = status_selector("Status", None, key="status-new")
+        submitted = st.form_submit_button("Salvar", use_container_width=True)
     if submitted and title:
         upsert_dissertation(
             {
@@ -142,6 +155,7 @@ if can_create:
                 "line_id": line_id,
                 "orientador_id": orientador_id,
                 "mestrando_id": mestrando_id,
+                "status": status,
                 "artigos_ids": [],
                 "ptts_ids": [],
             }
