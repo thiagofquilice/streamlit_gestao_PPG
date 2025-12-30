@@ -69,6 +69,23 @@ def list_ptts(ppg_id: str) -> List[dict]:
     return _filter_by_ppg(get_db().get("ptts", []), ppg_id)
 
 
+def get_evaluation_forms() -> dict:
+    return get_db().get("evaluation_forms", {})
+
+
+def list_evaluations(ppg_id: str, target_type: Optional[str] = None) -> List[dict]:
+    evaluations = _filter_by_ppg(get_db().get("evaluations", []), ppg_id)
+    if target_type:
+        return [ev for ev in evaluations if ev.get("target_type") == target_type]
+    return evaluations
+
+
+def upsert_evaluation(payload: dict) -> dict:
+    if not payload.get("id"):
+        payload["id"] = next_id("eval")
+    return _upsert("evaluations", payload)
+
+
 def get_by_id(entity: str, entity_id: str) -> Optional[dict]:
     return next((row for row in get_db().get(entity, []) if row.get("id") == entity_id), None)
 
