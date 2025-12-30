@@ -42,18 +42,30 @@ def load_memberships(user_id: str) -> List[Dict[str, Any]]:
     return response.data or []
 
 
-def _profiles_map(user_ids: List[str]) -> Dict[str, Dict[str, Any]]:
+def _safe_profiles_map(user_ids: List[str]) -> Dict[str, Dict[str, Any]]:
     if not user_ids:
         return {}
-    response = (
-        _client()
-        .table("profiles")
-        .select("user_id, email, display_name")
-        .in_("user_id", user_ids)
-        .execute()
-    )
-    data = response.data or []
-    return {row["user_id"]: row for row in data}
+    try:
+        response = (
+            _client()
+            .table("profiles")
+            .select("user_id, email, display_name")
+            .in_("user_id", user_ids)
+            .execute()
+        )
+        data = response.data or []
+        return {row["user_id"]: row for row in data}
+    except (APIError, Exception):
+        return {}
+
+
+def _format_user_label(user_id: Optional[str], profile: Dict[str, Any]) -> str:
+    label = profile.get("display_name") or profile.get("email")
+    if label:
+        return label
+    if not user_id:
+        return ""
+    return f"{user_id[:8]}…" if len(user_id) > 8 else user_id
 
 
 def list_ppg_members(ppg_id: str) -> List[Dict[str, Any]]:
@@ -67,12 +79,20 @@ def list_ppg_members(ppg_id: str) -> List[Dict[str, Any]]:
         .execute()
     )
     rows = response.data or []
-    profile_map = _profiles_map([row["user_id"] for row in rows])
+    profile_map = _safe_profiles_map([row["user_id"] for row in rows])
+    members: List[Dict[str, Any]] = []
     for row in rows:
         profile = profile_map.get(row["user_id"], {})
-        row["display_name"] = profile.get("display_name") or profile.get("email") or row["user_id"]
-        row["email"] = profile.get("email")
-    return rows
+        members.append(
+            {
+                "user_id": row.get("user_id"),
+                "role": row.get("role"),
+                "display_name": profile.get("display_name"),
+                "email": profile.get("email"),
+                "label": _format_user_label(row.get("user_id"), profile),
+            }
+        )
+    return members
 
 
 # ---------- Research lines ----------
@@ -177,13 +197,11 @@ def get_project_orientadores(project_id: str) -> List[Dict[str, Any]]:
         .execute()
     )
     user_ids = [row["user_id"] for row in (response.data or [])]
-    profiles = _profiles_map(user_ids)
+    profiles = _safe_profiles_map(user_ids)
     return [
         {
             "user_id": uid,
-            "display_name": profiles.get(uid, {}).get("display_name")
-            or profiles.get(uid, {}).get("email")
-            or uid,
+            "display_name": _format_user_label(uid, profiles.get(uid, {})),
             "email": profiles.get(uid, {}).get("email"),
         }
         for uid in user_ids
@@ -199,13 +217,11 @@ def get_project_mestrandos(project_id: str) -> List[Dict[str, Any]]:
         .execute()
     )
     user_ids = [row["user_id"] for row in (response.data or [])]
-    profiles = _profiles_map(user_ids)
+    profiles = _safe_profiles_map(user_ids)
     return [
         {
             "user_id": uid,
-            "display_name": profiles.get(uid, {}).get("display_name")
-            or profiles.get(uid, {}).get("email")
-            or uid,
+            "display_name": _format_user_label(uid, profiles.get(uid, {})),
             "email": profiles.get(uid, {}).get("email"),
         }
         for uid in user_ids

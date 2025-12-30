@@ -343,12 +343,13 @@ for insert with check (is_member(ppg_id));
 create policy if not exists ptts_update on public.ptts
 for update using (is_member(ppg_id));
 
-create policy if not exists profiles_select on public.profiles
+create policy if not exists profiles_select_same_ppg on public.profiles
 for select using (
   exists (
     select 1
-    from public.memberships m_target
-    join public.memberships m_self on m_self.ppg_id = m_target.ppg_id and m_self.user_id = auth.uid()
-    where m_target.user_id = profiles.user_id
+    from public.memberships m_me
+    join public.memberships m_other on m_other.ppg_id = m_me.ppg_id
+    where m_me.user_id = auth.uid()
+      and m_other.user_id = profiles.user_id
   )
 );
