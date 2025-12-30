@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from demo_seed import ensure_demo_db
+
+ensure_demo_db()
+
 import streamlit as st
 
 from demo_context import current_person, current_ppg, current_profile, get_ctx, set_person, set_ppg, set_profile
-from demo_seed import ensure_demo_db
 from demo_store import export_db_json, import_db_json, list_people, reset_db
 
 
@@ -59,7 +62,6 @@ def _sidebar() -> None:
     st.sidebar.page_link("pages/05_Artigos.py", label="Artigos")
     st.sidebar.page_link("pages/06_PTTs.py", label="PTTs")
     st.sidebar.page_link("pages/07_Avaliações.py", label="Avaliações")
-
 
 def main() -> None:
     _set_page_config()

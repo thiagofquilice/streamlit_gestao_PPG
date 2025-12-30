@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
+from demo_seed import ensure_demo_db
+
+ensure_demo_db()
+
 import pandas as pd
 import streamlit as st
 

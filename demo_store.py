@@ -2,10 +2,11 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import streamlit as st
 
+from demo_context import current_ppg
 from demo_seed import ensure_demo_db, init_demo_db
 
 
@@ -73,8 +74,11 @@ def get_evaluation_forms() -> dict:
     return get_db().get("evaluation_forms", {})
 
 
-def list_evaluations(ppg_id: str, target_type: Optional[str] = None, target_id: Optional[str] = None) -> List[dict]:
-    evaluations = _filter_by_ppg(get_db().get("evaluations", []), ppg_id)
+def list_evaluations(
+    target_type: Optional[str] = None, target_id: Optional[str] = None, ppg_id: Optional[str] = None
+) -> List[dict]:
+    ppg = ppg_id or current_ppg() or (get_db().get("ppgs", [{}])[0].get("id"))
+    evaluations = _filter_by_ppg(get_db().get("evaluations", []), ppg)
     if target_type:
         evaluations = [ev for ev in evaluations if ev.get("target_type") == target_type]
     if target_id:
@@ -90,6 +94,16 @@ def upsert_evaluation(payload: dict) -> dict:
 
 def add_evaluation(payload: dict) -> dict:
     return upsert_evaluation(payload)
+
+
+def stats_evaluations(target_type: str, target_id: str, ppg_id: Optional[str] = None) -> Tuple[int, Optional[float], Optional[float], Optional[str]]:
+    evaluations = list_evaluations(target_type=target_type, target_id=target_id, ppg_id=ppg_id)
+    if not evaluations:
+        return 0, None, None, None
+    scores = [ev.get("final_score") for ev in evaluations if ev.get("final_score") is not None]
+    avg = round(sum(scores) / len(scores), 2) if scores else None
+    latest = sorted(evaluations, key=lambda ev: ev.get("created_at", ""))[-1]
+    return len(evaluations), avg, latest.get("final_score"), latest.get("created_at")
 
 
 def get_by_id(entity: str, entity_id: str) -> Optional[dict]:
@@ -168,4 +182,5 @@ __all__ = [
     "_upsert",
     "_delete",
     "add_evaluation",
+    "stats_evaluations",
 ]
