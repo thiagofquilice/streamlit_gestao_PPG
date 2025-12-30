@@ -34,6 +34,25 @@ create table if not exists public.memberships (
 -- Normalize legacy roles if present
 update public.memberships set role = 'orientador'::member_role_v2 where role::text = 'professor';
 
+-- Ensure the role column uses the new enum type even on legacy tables
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'memberships'
+      and column_name = 'role'
+      and udt_name <> 'member_role_v2'
+  ) then
+    alter table public.memberships
+      alter column role type public.member_role_v2
+      using case
+        when role::text = 'professor' then 'orientador'::public.member_role_v2
+        else role::public.member_role_v2
+      end;
+  end if;
+end$$;
+
 create table if not exists public.research_lines (
     id uuid primary key default uuid_generate_v4(),
     ppg_id uuid not null references public.ppgs(id) on delete cascade,
