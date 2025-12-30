@@ -28,10 +28,16 @@ if not ppg_id or not role:
     st.warning("Faça login e selecione um PPG para continuar.")
     st.stop()
 
-members = list_ppg_members(ppg_id)
+try:
+    members = list_ppg_members(ppg_id)
+except Exception:
+    st.error(
+        "Falha ao carregar membros do PPG. Verifique se rodou a migração db/ddl.sql e se as policies RLS permitem acesso."
+    )
+    members = []
 orientadores = [m for m in members if m.get("role") == "orientador"]
 mestrandos = [m for m in members if m.get("role") == "mestrando"]
-member_labels = {m["user_id"]: m.get("display_name") or m["user_id"] for m in members}
+member_labels = {m["user_id"]: m.get("label") or m.get("display_name") or m["user_id"] for m in members}
 
 can_manage_projects = role in ("coordenador", "orientador")
 

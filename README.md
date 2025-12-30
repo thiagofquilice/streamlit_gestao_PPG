@@ -9,7 +9,7 @@ Aplicação Streamlit multi-PPG com autenticação Supabase (Auth + Postgres + S
 
 ## 1. Preparar o Supabase
 1. Crie um novo projeto no Supabase.
-2. No SQL Editor, execute o conteúdo de `db/ddl.sql` para criar/atualizar tabelas, funções e policies (rode novamente sempre que atualizar o repositório).
+2. No SQL Editor, execute o conteúdo de `db/ddl.sql` para criar/atualizar tabelas, funções e policies (rode novamente sempre que atualizar o repositório). O script também cria a tabela opcional `profiles` (espelha `auth.users`) com RLS para uso na interface; se ela não existir ou não estiver acessível, o app cai em *fallback* e mostra o `user_id` no lugar do nome/e-mail.
 3. Em **Auth → Users → Add user**, crie um usuário (e-mail/senha) e marque **Confirm user**.
 4. Crie um PPG e vincule o usuário como coordenador (seed inicial):
    ```sql
@@ -28,6 +28,12 @@ Aplicação Streamlit multi-PPG com autenticação Supabase (Auth + Postgres + S
    VALUES
      ('<uuid-orientador>', '<uuid-ppg>', 'orientador'),
      ('<uuid-mestrando>', '<uuid-ppg>', 'mestrando');
+   ```
+6. (Opcional) Preencha ou ajuste manualmente a tabela `profiles` para exibir nomes/emails no app (útil se não quiser usar o trigger). Exemplo:
+   ```sql
+   insert into public.profiles (user_id, email, display_name)
+   values ('<uuid-usuario>', 'email@exemplo.br', 'Nome para exibir')
+   on conflict (user_id) do update set email = excluded.email, display_name = excluded.display_name;
    ```
 
 ## 2. Configurar secrets no Streamlit
@@ -71,13 +77,13 @@ Defina `SUPABASE_URL` e `SUPABASE_ANON_KEY` no ambiente ou em `.streamlit/secret
 - Demais páginas seguem protegidas por login e `ppg_id`.
 
 ## 6. Banco de dados e RLS
-- Tabelas mínimas: `ppgs`, `memberships`, `profiles` (espelha `auth.users` para exibir nome/email), `research_lines`, `swot_items`, `projects` (colunas `name`, `description`, `parent_project_id`), `project_orientadores`, `project_mestrandos`, `articles`, `dissertations`, `ptts`.
+- Tabelas mínimas: `ppgs`, `memberships`, `profiles` (opcional; se indisponível o app exibe o `user_id`), `research_lines`, `swot_items`, `projects` (colunas `name`, `description`, `parent_project_id`), `project_orientadores`, `project_mestrandos`, `articles`, `dissertations`, `ptts`.
 - Enum de roles: `member_role_v2` com `coordenador`, `orientador`, `mestrando` (migrando `professor` -> `orientador`).
 - Funções: `is_member(ppg uuid)`, `is_coordinator(ppg uuid)`, `user_role(ppg uuid)` e helpers de projeto.
 - Policies principais:
   - `ppg_select`: `ppgs` somente para membros.
   - `memberships`: select do próprio usuário ou de quem pertence ao mesmo PPG (para montar listas de vínculo) e seed manual.
-  - `profiles`: select permitido para quem compartilha um PPG via memberships.
+- `profiles`: select permitido para quem compartilha um PPG via memberships (policy `profiles_select_same_ppg`).
   - `projects`: select para membros; insert/update para coordenador ou orientador; delete apenas coordenador.
   - `project_orientadores`/`project_mestrandos`: select para membros do PPG do projeto; insert/delete para coordenador/orientador.
   - `articles`/`dissertations`/`ptts`: select/insert/update para membros dentro do PPG.
