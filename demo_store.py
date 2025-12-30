@@ -73,10 +73,12 @@ def get_evaluation_forms() -> dict:
     return get_db().get("evaluation_forms", {})
 
 
-def list_evaluations(ppg_id: str, target_type: Optional[str] = None) -> List[dict]:
+def list_evaluations(ppg_id: str, target_type: Optional[str] = None, target_id: Optional[str] = None) -> List[dict]:
     evaluations = _filter_by_ppg(get_db().get("evaluations", []), ppg_id)
     if target_type:
-        return [ev for ev in evaluations if ev.get("target_type") == target_type]
+        evaluations = [ev for ev in evaluations if ev.get("target_type") == target_type]
+    if target_id:
+        evaluations = [ev for ev in evaluations if ev.get("target_id") == target_id]
     return evaluations
 
 
@@ -86,12 +88,20 @@ def upsert_evaluation(payload: dict) -> dict:
     return _upsert("evaluations", payload)
 
 
+def add_evaluation(payload: dict) -> dict:
+    return upsert_evaluation(payload)
+
+
 def get_by_id(entity: str, entity_id: str) -> Optional[dict]:
     return next((row for row in get_db().get(entity, []) if row.get("id") == entity_id), None)
 
 
 def orientadores_by_line(line_id: str) -> List[dict]:
-    return [p for p in get_db().get("people", []) if line_id in p.get("linhas_de_pesquisa_ids", [])]
+    return [
+        p
+        for p in get_db().get("people", [])
+        if line_id in p.get("linhas_de_pesquisa_ids", []) or line_id in p.get("linhas_ids", [])
+    ]
 
 
 def mestrandos_by_orientador(orientador_id: str) -> List[dict]:
@@ -146,6 +156,7 @@ __all__ = [
     "list_dissertations",
     "list_articles",
     "list_ptts",
+    "list_evaluations",
     "get_by_id",
     "orientadores_by_line",
     "mestrandos_by_orientador",
@@ -156,4 +167,5 @@ __all__ = [
     "ptts_by_dissertation",
     "_upsert",
     "_delete",
+    "add_evaluation",
 ]

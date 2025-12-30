@@ -6,6 +6,7 @@ from typing import List
 import streamlit as st
 
 from demo_context import current_ppg, current_profile
+from demo_seed import ensure_demo_db
 from data import (
     create_project,
     delete_project,
@@ -23,19 +24,15 @@ from data import (
 )
 from rbac import can
 
+ensure_demo_db()
+
 st.title("Projetos")
 ppg_id = current_ppg()
 role = current_profile()
 if not ppg_id:
     st.stop()
 
-try:
-    members = list_ppg_members(ppg_id)
-except Exception:
-    st.error(
-        "Falha ao carregar membros do PPG. Verifique se rodou a migração db/ddl.sql e se as policies RLS permitem acesso."
-    )
-    members = []
+members = list_ppg_members(ppg_id)
 orientadores = [m for m in members if m.get("role") == "orientador"]
 mestrandos = [m for m in members if m.get("role") == "mestrando"]
 member_labels = {m["user_id"]: m.get("label") or m.get("display_name") or m["user_id"] for m in members}
@@ -58,14 +55,22 @@ if can_manage_projects:
             format_func=lambda lid: line_options.get(lid, "Sem linha") if lid else "Sem linha",
         )
         status = st.selectbox("Status", ["planejamento", "em_andamento", "concluido"])
+        orientador_selected = st.multiselect(
+            "Orientadores", options=[m["user_id"] for m in orientadores], format_func=lambda uid: member_labels.get(uid, uid)
+        )
+        mestrando_selected = st.multiselect(
+            "Mestrandos", options=[m["user_id"] for m in mestrandos], format_func=lambda uid: member_labels.get(uid, uid)
+        )
         submitted = st.form_submit_button("Salvar projeto")
     if submitted:
         if not name:
             st.error("Nome é obrigatório.")
         else:
-            create_project(ppg_id, name, description or None, line_id, status)
+            new_project = create_project(ppg_id, name, description or None, line_id, status)
+            set_project_orientadores(new_project["id"], orientador_selected)
+            set_project_mestrandos(new_project["id"], mestrando_selected)
             st.success("Projeto criado com sucesso.")
-            st.experimental_rerun()
+            st.rerun()
 else:
     st.info("Seu perfil não permite criar ou editar projetos. Visualização somente de leitura.")
 
@@ -75,10 +80,10 @@ if projects:
     for project in projects:
         orientadores_atual = [o["user_id"] for o in get_project_orientadores(project["id"])]
         mestrandos_atual = [m["user_id"] for m in get_project_mestrandos(project["id"])]
-        parent_name = project_options.get(project.get("parent_project_id"))
         with st.expander(project.get("name") or "(Sem nome)", expanded=False):
             st.write(project.get("description") or "Sem descrição.")
-            st.caption(f"Projeto relacionado: {parent_name or 'Nenhum'}")
+            st.caption(f"Linha de pesquisa: {line_options.get(project.get('line_id')) or 'Sem linha'}")
+            st.caption(f"Status: {project.get('status')}")
 
             if can_manage_projects:
                 with st.form(f"manage-{project['id']}"):
@@ -126,17 +131,16 @@ if projects:
                     st.success("Projeto atualizado.")
                     st.rerun()
 
-            else:
-                st.write(
-                    "Orientadores:",
-                    ", ".join([member_labels.get(uid, uid) for uid in orientadores_atual])
-                    or "Nenhum orientador vinculado",
-                )
-                st.write(
-                    "Mestrandos:",
-                    ", ".join([member_labels.get(uid, uid) for uid in mestrandos_atual])
-                    or "Nenhum mestrando vinculado",
-                )
+            st.write(
+                "Orientadores:",
+                ", ".join([member_labels.get(uid, uid) for uid in orientadores_atual])
+                or "Nenhum orientador vinculado",
+            )
+            st.write(
+                "Mestrandos:",
+                ", ".join([member_labels.get(uid, uid) for uid in mestrandos_atual])
+                or "Nenhum mestrando vinculado",
+            )
 
             st.markdown("**Associados**")
             diss = list_project_dissertations(project["id"])
@@ -146,12 +150,12 @@ if projects:
             st.write("Artigos:", ", ".join([a.get("title", "") for a in arts]) or "Nenhum")
             st.write("PTTs:", ", ".join([p.get("title", "") for p in ptts]) or "Nenhum")
 
-            if can("apagar"):
+            if can("apagar") and can_manage_projects:
                 if st.button(
                     "Excluir projeto", key=f"delete-{project['id']}", type="primary", use_container_width=True
                 ):
                     delete_project(project["id"])
                     st.success("Projeto removido.")
-                    st.experimental_rerun()
+                    st.rerun()
 else:
     st.info("Nenhum projeto cadastrado para este PPG.")
