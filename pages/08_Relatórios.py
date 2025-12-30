@@ -3,10 +3,8 @@ from __future__ import annotations
 
 from demo_seed import ensure_demo_db
 import streamlit as st
-from ui_style import apply_modern_white_theme
 
 ensure_demo_db()
-apply_modern_white_theme()
 
 st.title("Relatórios")
 ppg_id = st.session_state.get("ppg_id")

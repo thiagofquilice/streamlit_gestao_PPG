@@ -8,7 +8,6 @@ import streamlit as st
 
 from demo_context import current_person, current_ppg, current_profile, get_ctx, set_person, set_ppg, set_profile
 from demo_store import export_db_json, import_db_json, list_people, reset_db
-from ui_style import apply_modern_white_theme
 
 
 def _set_page_config() -> None:
@@ -67,7 +66,6 @@ def _sidebar() -> None:
 def main() -> None:
     _set_page_config()
     ensure_demo_db()
-    apply_modern_white_theme()
     _sidebar()
     st.title("PPG Manager - Demo")
     st.success("Use a barra lateral para navegar entre as páginas.")
