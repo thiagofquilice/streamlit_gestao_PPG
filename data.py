@@ -4,8 +4,12 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from demo_context import current_ppg
 from demo_seed import ensure_demo_db
+
+ensure_demo_db()
+
+from demo_context import current_ppg
+
 from demo_store import (
     _delete,
     _upsert,
@@ -30,11 +34,9 @@ from demo_store import (
     ptts_by_dissertation,
     ptts_by_project,
     reset_db,
+    stats_evaluations,
     upsert_evaluation,
 )
-
-
-ensure_demo_db()
 
 
 def list_ppgs() -> List[Dict[str, Any]]:
@@ -296,11 +298,15 @@ def add_evaluation_record(payload: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def list_ppg_evaluations(ppg_id: str, target_type: Optional[str] = None) -> List[Dict[str, Any]]:
-    return list_evaluations(ppg_id, target_type)
+    return list_evaluations(target_type=target_type, ppg_id=ppg_id)
 
 
 def list_target_evaluations(target_type: str, target_id: str) -> List[Dict[str, Any]]:
-    return list_evaluations(current_ppg() or "", target_type, target_id)
+    return list_evaluations(target_type=target_type, target_id=target_id, ppg_id=current_ppg())
+
+
+def evaluation_stats(target_type: str, target_id: str) -> tuple[int, Optional[float], Optional[float], Optional[str]]:
+    return stats_evaluations(target_type=target_type, target_id=target_id, ppg_id=current_ppg())
 
 
 def save_evaluation(

@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
+from demo_seed import ensure_demo_db
+
+ensure_demo_db()
+
 import streamlit as st
 
 from data import list_dissertations, list_ppg_members, list_projects, list_research_lines, upsert_dissertation
 from demo_context import current_ppg, current_profile
-from demo_seed import ensure_demo_db
 from rbac import can
 
 ensure_demo_db()
