@@ -16,10 +16,8 @@ from data import (
     list_ptts,
     list_target_evaluations,
 )
-from ui_style import apply_modern_white_theme
 
 ensure_demo_db()
-apply_modern_white_theme()
 
 st.title("Avaliações")
 ppg_id = current_ppg()

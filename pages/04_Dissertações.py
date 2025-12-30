@@ -7,10 +7,8 @@ import streamlit as st
 from data import list_dissertations, list_ppg_members, list_projects, list_research_lines, upsert_dissertation
 from demo_context import current_ppg, current_profile
 from rbac import can
-from ui_style import apply_modern_white_theme
 
 ensure_demo_db()
-apply_modern_white_theme()
 
 STATUS_OPTIONS = ["planejado", "em_execucao", "concluido"]
 

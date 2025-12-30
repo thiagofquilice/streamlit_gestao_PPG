@@ -15,10 +15,8 @@ from data import (
     list_target_evaluations,
     upsert_ptt,
 )
-from ui_style import apply_modern_white_theme
 
 ensure_demo_db()
-apply_modern_white_theme()
 
 STATUS_OPTIONS = ["planejado", "em_execucao", "concluido"]
 

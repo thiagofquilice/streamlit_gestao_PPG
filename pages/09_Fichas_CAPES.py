@@ -7,10 +7,8 @@ import streamlit as st
 
 from data import get_admin_evaluation_forms
 from demo_context import current_ppg, current_profile
-from ui_style import apply_modern_white_theme
 
 ensure_demo_db()
-apply_modern_white_theme()
 
 st.title("Fichas CAPES / Critérios Administração")
 ppg_id = current_ppg()

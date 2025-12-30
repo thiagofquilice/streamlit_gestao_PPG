@@ -13,10 +13,8 @@ from data import (
     list_projects,
     list_research_lines,
 )
-from ui_style import apply_modern_white_theme
 
 ensure_demo_db()
-apply_modern_white_theme()
 
 st.title("Projetos")
 ppg_id = current_ppg()

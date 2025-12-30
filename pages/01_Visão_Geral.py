@@ -7,10 +7,8 @@ import streamlit as st
 
 from demo_context import current_person, current_ppg, current_profile
 from data import list_articles, list_dissertations, list_projects, list_ptts, list_research_lines, list_ppg_members, list_project_articles, list_project_dissertations, list_project_ptts
-from ui_style import apply_modern_white_theme
 
 ensure_demo_db()
-apply_modern_white_theme()
 
 st.title("Visão Geral")
 ppg_id = current_ppg()
