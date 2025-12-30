@@ -11,6 +11,7 @@ from demo_store import (
     articles_by_dissertation,
     articles_by_project,
     export_db_json,
+    get_evaluation_forms,
     get_by_id,
     get_db,
     import_db_json,
@@ -20,12 +21,14 @@ from demo_store import (
     list_people,
     list_projects,
     list_ptts,
+    list_evaluations,
     mestrandos_by_orientador,
     next_id,
     orientadores_by_line,
     ptts_by_dissertation,
     ptts_by_project,
     reset_db,
+    upsert_evaluation,
 )
 
 
@@ -240,6 +243,59 @@ def _maybe_attach_ptt_to_dissertation(ptt: Dict[str, Any]) -> None:
     for diss in get_db().get("dissertations", []):
         if diss.get("id") != diss_id and ptt.get("id") in diss.get("ptts_ids", []):
             diss["ptts_ids"] = [pid for pid in diss.get("ptts_ids", []) if pid != ptt.get("id")]
+
+
+# Evaluation forms and evaluations
+
+def get_admin_evaluation_forms() -> Dict[str, Any]:
+    return get_evaluation_forms() or {}
+
+
+def get_admin_form(form_key: str) -> Dict[str, Any]:
+    return get_admin_evaluation_forms().get(form_key, {})
+
+
+def _score_value(raw_value: Any, response_type: str) -> float:
+    if response_type == "yes_no":
+        return 5.0 if bool(raw_value) else 0.0
+    try:
+        return float(raw_value)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def calculate_weighted_score(form: Dict[str, Any], scores: Dict[str, Any]) -> float:
+    total = 0.0
+    for criterion in form.get("criteria", []):
+        weight = float(criterion.get("weight", 0))
+        value = _score_value(scores.get(criterion.get("id")), criterion.get("response_type", "scale_1_5"))
+        total += weight * value
+    return round(total, 2)
+
+
+def save_evaluation(
+    ppg_id: str,
+    target_type: str,
+    target_id: str,
+    form_key: str,
+    scores: Dict[str, Any],
+    comments: Optional[str] = None,
+) -> Dict[str, Any]:
+    form = get_admin_form(form_key)
+    payload = {
+        "ppg_id": ppg_id,
+        "target_type": target_type,
+        "target_id": target_id,
+        "form_key": form_key,
+        "scores": scores,
+        "comments": comments,
+    }
+    payload["final_score"] = calculate_weighted_score(form, scores) if form else 0.0
+    return upsert_evaluation(payload)
+
+
+def list_ppg_evaluations(ppg_id: str, target_type: Optional[str] = None) -> List[Dict[str, Any]]:
+    return list_evaluations(ppg_id, target_type)
 
 
 __all__ = [name for name in globals() if not name.startswith("_")]

@@ -117,6 +117,16 @@ def init_demo_db() -> Dict[str, List[dict]]:
             "orientadores_ids": ["prof-a", "prof-b"],
             "mestrandos_ids": ["m4"],
         },
+        {
+            "id": "proj-4",
+            "ppg_id": ppg_id,
+            "name": "Projeto P4",
+            "description": "Projeto aplicado com foco em gestão",
+            "line_id": "line-b",
+            "status": "concluido",
+            "orientadores_ids": ["prof-b"],
+            "mestrandos_ids": ["m2"],
+        },
     ]
 
     dissertations = [
@@ -268,29 +278,131 @@ def init_demo_db() -> Dict[str, List[dict]]:
         },
     ]
 
-    capes_forms = [
-        {
-            "id": "capes-artigo",
-            "type": "article",
-            "name": "Ficha CAPES - Artigos",
+    evaluation_forms = {
+        "articles": {
+            "name": "Ficha Administração - Artigos",
             "criteria": [
-                {"id": "aderencia", "label": "Aderência", "weight": 0.3},
-                {"id": "impacto", "label": "Impacto", "weight": 0.4},
-                {"id": "qualidade", "label": "Qualidade", "weight": 0.3},
+                {
+                    "id": "aderencia_linha",
+                    "name": "Aderência à linha",
+                    "description": "Coerência com a linha de pesquisa do PPG e agenda da área.",
+                    "weight": 0.12,
+                    "response_type": "scale_1_5",
+                },
+                {
+                    "id": "contribuicao",
+                    "name": "Contribuição",
+                    "description": "Avanço teórico ou prático para Administração.",
+                    "weight": 0.12,
+                    "response_type": "scale_1_5",
+                },
+                {
+                    "id": "rigor_metodologico",
+                    "name": "Rigor metodológico",
+                    "description": "Adequação e robustez da metodologia empregada.",
+                    "weight": 0.14,
+                    "response_type": "scale_1_5",
+                },
+                {
+                    "id": "clareza",
+                    "name": "Clareza",
+                    "description": "Redação, estrutura e transparência dos resultados.",
+                    "weight": 0.1,
+                    "response_type": "scale_1_5",
+                },
+                {
+                    "id": "impacto",
+                    "name": "Impacto",
+                    "description": "Potencial de impacto acadêmico ou social.",
+                    "weight": 0.12,
+                    "response_type": "scale_1_5",
+                },
+                {
+                    "id": "qualificacao_veiculo",
+                    "name": "Qualificação do veículo",
+                    "description": "Aderência ao estrato/qualidade do periódico ou evento.",
+                    "weight": 0.14,
+                    "response_type": "scale_1_5",
+                },
+                {
+                    "id": "internacionalizacao",
+                    "name": "Internacionalização",
+                    "description": "Participação ou alcance internacional do trabalho.",
+                    "weight": 0.14,
+                    "response_type": "scale_1_5",
+                },
+                {
+                    "id": "etica",
+                    "name": "Ética",
+                    "description": "Atendimento a requisitos éticos e de integridade.",
+                    "weight": 0.12,
+                    "response_type": "yes_no",
+                },
             ],
         },
-        {
-            "id": "capes-ptt",
-            "type": "ptt",
-            "name": "Ficha CAPES - PTT",
+        "ptts": {
+            "name": "Ficha Administração - PTTs",
+            "ptt_types": ["software", "processo", "relatorio", "produto", "servico"],
             "criteria": [
-                {"id": "novidade", "label": "Novidade", "weight": 0.34},
-                {"id": "implementacao", "label": "Implementação", "weight": 0.33},
-                {"id": "documentacao", "label": "Documentação", "weight": 0.33},
+                {
+                    "id": "aplicabilidade",
+                    "name": "Aplicabilidade gerencial",
+                    "description": "Capacidade de resolver problemas práticos de gestão.",
+                    "weight": 0.14,
+                    "response_type": "scale_1_5",
+                },
+                {
+                    "id": "inovacao",
+                    "name": "Inovação",
+                    "description": "Grau de novidade em relação a soluções existentes.",
+                    "weight": 0.12,
+                    "response_type": "scale_1_5",
+                },
+                {
+                    "id": "maturidade",
+                    "name": "Maturidade/validação",
+                    "description": "Nível de validação técnica ou de negócios.",
+                    "weight": 0.12,
+                    "response_type": "scale_1_5",
+                },
+                {
+                    "id": "adocao",
+                    "name": "Adoção/replicabilidade",
+                    "description": "Facilidade de adoção em organizações e replicação.",
+                    "weight": 0.12,
+                    "response_type": "scale_1_5",
+                },
+                {
+                    "id": "impacto_mensuravel",
+                    "name": "Impacto mensurável",
+                    "description": "Resultados demonstráveis (financeiros, operacionais ou sociais).",
+                    "weight": 0.14,
+                    "response_type": "scale_1_5",
+                },
+                {
+                    "id": "viabilidade",
+                    "name": "Viabilidade",
+                    "description": "Custo, tempo e recursos necessários para implantação.",
+                    "weight": 0.12,
+                    "response_type": "scale_1_5",
+                },
+                {
+                    "id": "documentacao",
+                    "name": "Documentação/transferibilidade",
+                    "description": "Disponibilidade de materiais que permitam transferência.",
+                    "weight": 0.12,
+                    "response_type": "scale_1_5",
+                },
+                {
+                    "id": "stakeholders",
+                    "name": "Alinhamento com stakeholders",
+                    "description": "Envolvimento e aderência às necessidades das partes interessadas.",
+                    "weight": 0.12,
+                    "response_type": "yes_no",
+                },
             ],
-            "tipos_ptt": ["software", "processo", "relatorio"],
         },
-    ]
+    }
 
     evaluations = [
         {
@@ -298,8 +410,18 @@ def init_demo_db() -> Dict[str, List[dict]]:
             "ppg_id": ppg_id,
             "target_type": "article",
             "target_id": "art-1",
-            "form_id": "capes-artigo",
-            "scores": {"aderencia": 4, "impacto": 5, "qualidade": 4},
+            "form_key": "articles",
+            "scores": {
+                "aderencia_linha": 5,
+                "contribuicao": 4,
+                "rigor_metodologico": 4,
+                "clareza": 5,
+                "impacto": 4,
+                "qualificacao_veiculo": 4,
+                "internacionalizacao": 3,
+                "etica": True,
+            },
+            "final_score": 4.2,
             "comments": "Boa aderência e impacto inicial.",
         },
         {
@@ -307,8 +429,18 @@ def init_demo_db() -> Dict[str, List[dict]]:
             "ppg_id": ppg_id,
             "target_type": "ptt",
             "target_id": "ptt-3",
-            "form_id": "capes-ptt",
-            "scores": {"novidade": 3, "implementacao": 4, "documentacao": 4},
+            "form_key": "ptts",
+            "scores": {
+                "aplicabilidade": 4,
+                "inovacao": 3,
+                "maturidade": 3,
+                "adocao": 4,
+                "impacto_mensuravel": 4,
+                "viabilidade": 3,
+                "documentacao": 4,
+                "stakeholders": True,
+            },
+            "final_score": 3.76,
             "comments": "Implementação consistente.",
         },
     ]
@@ -325,7 +457,7 @@ def init_demo_db() -> Dict[str, List[dict]]:
         "dissertations": dissertations,
         "articles": articles,
         "ptts": ptts,
-        "capes_forms": capes_forms,
+        "evaluation_forms": evaluation_forms,
         "evaluations": evaluations,
     }
 
