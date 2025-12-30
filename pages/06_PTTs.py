@@ -2,9 +2,6 @@
 from __future__ import annotations
 
 from demo_seed import ensure_demo_db
-
-ensure_demo_db()
-
 import streamlit as st
 
 from demo_context import current_ppg, current_profile
@@ -16,7 +13,22 @@ from data import (
     list_ptts,
     list_research_lines,
     list_target_evaluations,
+    upsert_ptt,
 )
+from ui_style import apply_modern_white_theme
+
+ensure_demo_db()
+apply_modern_white_theme()
+
+STATUS_OPTIONS = ["planejado", "em_execucao", "concluido"]
+
+
+def status_selector(label: str, value: str | None, key: str) -> str:
+    default_value = value if value in STATUS_OPTIONS else STATUS_OPTIONS[0]
+    segmented = getattr(st, "segmented_control", None)
+    if segmented:
+        return segmented(label, STATUS_OPTIONS, default=default_value, key=key)
+    return st.radio(label, STATUS_OPTIONS, horizontal=True, index=STATUS_OPTIONS.index(default_value), key=key)
 
 st.title("PTTs")
 ppg_id = current_ppg()
@@ -44,8 +56,17 @@ for ptt in ptts:
             f"Linha: {lines.get(ptt.get('line_id')) or 'Sem linha'} | Ano: {ptt.get('year') or 'N/A'}"
         )
         st.caption(
-            f"Status: {ptt.get('status', 'N/A')} | Tipo: {ptt.get('tipo_ptt') or 'N/A'} | Dissertação: {disserts.get(ptt.get('dissertation_id')) or 'Sem vínculo'}"
+            f"Status: {ptt.get('status') or 'planejado'} | Tipo: {ptt.get('tipo_ptt') or 'N/A'} | Dissertação: {disserts.get(ptt.get('dissertation_id')) or 'Sem vínculo'}"
         )
+
+        with st.form(f"ptt-status-{ptt['id']}"):
+            status = status_selector("Status", ptt.get("status"), key=f"ptt-status-control-{ptt['id']}")
+            submitted_status = st.form_submit_button("Atualizar status", use_container_width=True)
+
+        if submitted_status:
+            upsert_ptt({**ptt, "status": status})
+            st.success("Status do PTT atualizado.")
+            st.rerun()
 
         count, avg, last_score, last_date = evaluation_stats("ptt", ptt["id"])
         st.markdown(
