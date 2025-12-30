@@ -59,7 +59,6 @@ def _sidebar() -> None:
     st.sidebar.page_link("pages/05_Artigos.py", label="Artigos")
     st.sidebar.page_link("pages/06_PTTs.py", label="PTTs")
     st.sidebar.page_link("pages/07_Avaliações.py", label="Avaliações")
-    st.sidebar.page_link("pages/08_Relatórios.py", label="Relatórios")
 
 
 def main() -> None:

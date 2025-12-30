@@ -33,6 +33,7 @@ def init_demo_db() -> Dict[str, List[dict]]:
             "role": "orientador",
             "email": "prof.a@ppg.demo",
             "linhas_de_pesquisa_ids": ["line-a", "line-c"],
+            "linhas_ids": ["line-a", "line-c"],
             "status": "ativo",
         },
         {
@@ -42,6 +43,7 @@ def init_demo_db() -> Dict[str, List[dict]]:
             "role": "orientador",
             "email": "prof.b@ppg.demo",
             "linhas_de_pesquisa_ids": ["line-b", "line-c"],
+            "linhas_ids": ["line-b", "line-c"],
             "status": "ativo",
         },
         {
@@ -52,6 +54,7 @@ def init_demo_db() -> Dict[str, List[dict]]:
             "email": "m1@ppg.demo",
             "orientador_id": "prof-a",
             "linha_id": "line-a",
+            "line_id": "line-a",
             "status": "em andamento",
         },
         {
@@ -62,6 +65,7 @@ def init_demo_db() -> Dict[str, List[dict]]:
             "email": "m2@ppg.demo",
             "orientador_id": "prof-a",
             "linha_id": "line-a",
+            "line_id": "line-a",
             "status": "em andamento",
         },
         {
@@ -72,6 +76,7 @@ def init_demo_db() -> Dict[str, List[dict]]:
             "email": "m3@ppg.demo",
             "orientador_id": "prof-b",
             "linha_id": "line-b",
+            "line_id": "line-b",
             "status": "em andamento",
         },
         {
@@ -82,6 +87,7 @@ def init_demo_db() -> Dict[str, List[dict]]:
             "email": "m4@ppg.demo",
             "orientador_id": "prof-a",
             "linha_id": "line-c",
+            "line_id": "line-c",
             "status": "em andamento",
         },
     ]
@@ -404,46 +410,62 @@ def init_demo_db() -> Dict[str, List[dict]]:
         },
     }
 
-    evaluations = [
-        {
-            "id": "eval-art-1",
-            "ppg_id": ppg_id,
-            "target_type": "article",
-            "target_id": "art-1",
-            "form_key": "articles",
-            "scores": {
-                "aderencia_linha": 5,
-                "contribuicao": 4,
-                "rigor_metodologico": 4,
-                "clareza": 5,
-                "impacto": 4,
-                "qualificacao_veiculo": 4,
-                "internacionalizacao": 3,
-                "etica": True,
-            },
-            "final_score": 4.2,
-            "comments": "Boa aderência e impacto inicial.",
-        },
-        {
-            "id": "eval-ptt-1",
-            "ppg_id": ppg_id,
-            "target_type": "ptt",
-            "target_id": "ptt-3",
-            "form_key": "ptts",
-            "scores": {
-                "aplicabilidade": 4,
-                "inovacao": 3,
-                "maturidade": 3,
-                "adocao": 4,
-                "impacto_mensuravel": 4,
-                "viabilidade": 3,
-                "documentacao": 4,
-                "stakeholders": True,
-            },
-            "final_score": 3.76,
-            "comments": "Implementação consistente.",
-        },
-    ]
+    def _score_value(raw_value, response_type: str) -> float:
+        if response_type == "yes_no":
+            return 5.0 if bool(raw_value) else 0.0
+        return float(raw_value)
+
+    def _calculate_final_score(form: dict, scores: dict) -> float:
+        total = 0.0
+        for criterion in form.get("criteria", []):
+            weight = float(criterion.get("weight", 0))
+            value = _score_value(scores.get(criterion.get("id")), criterion.get("response_type", "scale_1_5"))
+            total += weight * value
+        return round(total, 2)
+
+    def _make_scores(form: dict, base_value: int) -> dict:
+        scores = {}
+        for criterion in form.get("criteria", []):
+            if criterion.get("response_type") == "yes_no":
+                scores[criterion["id"]] = base_value % 2 == 0
+            else:
+                scores[criterion["id"]] = min(5, max(3, 3 + (base_value % 3)))
+        return scores
+
+    evaluations = []
+    for idx, article in enumerate(articles, start=1):
+        scores = _make_scores(evaluation_forms["articles"], idx)
+        evaluations.append(
+            {
+                "id": f"eval-article-{idx}",
+                "ppg_id": ppg_id,
+                "target_type": "article",
+                "target_id": article["id"],
+                "form_type": "articles",
+                "scores": scores,
+                "final_score": _calculate_final_score(evaluation_forms["articles"], scores),
+                "notes": f"Avaliação simulada do artigo {article['title']}",
+                "evaluator_id": article.get("orientador_id") or "person-coord",
+                "created_at": f"2024-01-{idx:02d}T00:00:00",
+            }
+        )
+
+    for idx, ptt in enumerate(ptts, start=1):
+        scores = _make_scores(evaluation_forms["ptts"], idx + len(articles))
+        evaluations.append(
+            {
+                "id": f"eval-ptt-{idx}",
+                "ppg_id": ppg_id,
+                "target_type": "ptt",
+                "target_id": ptt["id"],
+                "form_type": "ptts",
+                "scores": scores,
+                "final_score": _calculate_final_score(evaluation_forms["ptts"], scores),
+                "notes": f"Avaliação simulada do PTT {ptt['title']}",
+                "evaluator_id": ptt.get("orientador_id") or "person-coord",
+                "created_at": f"2024-02-{idx:02d}T00:00:00",
+            }
+        )
 
     ppgs = [
         {"id": ppg_id, "name": "PPG Piloto", "description": "Programa de pós-graduação demonstrativo."}

@@ -1,19 +1,25 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
-import pandas as pd
+from typing import Dict
+
 import streamlit as st
 
 from data import (
+    add_evaluation_record,
     calculate_weighted_score,
     get_admin_evaluation_forms,
     get_admin_form,
     list_articles,
-    list_ppg_evaluations,
+    list_ppg_members,
     list_ptts,
-    save_evaluation,
+    list_target_evaluations,
 )
-from demo_context import current_ppg, current_profile
+from demo_context import current_person, current_ppg, current_profile
+from demo_seed import ensure_demo_db
+
+
+ensure_demo_db()
 
 st.title("Avaliações")
 ppg_id = current_ppg()
@@ -29,25 +35,38 @@ if not forms:
 
 articles = list_articles(ppg_id)
 ptts = list_ptts(ppg_id)
+members = list_ppg_members(ppg_id)
+people_labels = {m["user_id"]: m.get("display_name") or m.get("label") or m["user_id"] for m in members}
+
+
+def _current_evaluator_id() -> str | None:
+    if role != "coordenador":
+        return current_person()
+    coord = next((m["user_id"] for m in members if m.get("role") == "coordenador"), None)
+    return coord or current_person() or (members[0]["user_id"] if members else None)
+
 
 targets = {
     "article": {
         "label": "Artigos",
         "items": articles,
-        "form_key": "articles",
+        "form_type": "articles",
         "title_field": "title",
     },
     "ptt": {
         "label": "PTTs",
         "items": ptts,
-        "form_key": "ptts",
+        "form_type": "ptts",
         "title_field": "title",
     },
 }
 
 target_type = st.selectbox("Tipo de avaliação", options=list(targets.keys()), format_func=lambda k: targets[k]["label"])
 target_cfg = targets[target_type]
-form = get_admin_form(target_cfg["form_key"])
+form = get_admin_form(target_cfg["form_type"])
+if not form:
+    st.warning("Ficha de avaliação não encontrada para este tipo.")
+    form = {"criteria": []}
 
 if not target_cfg["items"]:
     st.info(f"Nenhum {target_cfg['label'].lower()} cadastrado para avaliar.")
@@ -60,47 +79,66 @@ selected_id = st.selectbox(
     format_func=lambda oid: options.get(oid, oid),
 )
 
-with st.expander(form.get("name", "Ficha"), expanded=True):
-    st.caption("Preencha os critérios abaixo. Itens do tipo 'yes_no' valem 5 para 'Sim' e 0 para 'Não'.")
-    with st.form("evaluation_form"):
-        scores = {}
-        for criterion in form.get("criteria", []):
-            ctype = criterion.get("response_type")
-            label = f"{criterion.get('name')} ({criterion.get('weight')})"
-            help_text = criterion.get("description")
-            if ctype == "yes_no":
-                scores[criterion["id"]] = st.checkbox(label, help=help_text, value=True)
-            else:
-                scores[criterion["id"]] = st.slider(
-                    label,
-                    min_value=1,
-                    max_value=5,
-                    step=1,
-                    value=4,
-                    help=help_text,
-                )
-        comments = st.text_area("Comentários", placeholder="Observações gerais da banca")
-        submitted = st.form_submit_button("Salvar avaliação", type="primary")
+current_target_key = f"{target_type}:{selected_id}"
+if st.session_state.get("_current_eval_target") != current_target_key:
+    st.session_state["_current_eval_target"] = current_target_key
+    st.session_state.pop("_show_eval_form", None)
 
-    if submitted:
-        saved = save_evaluation(ppg_id, target_type, selected_id, target_cfg["form_key"], scores, comments)
-        final_score = saved.get("final_score") or calculate_weighted_score(form, scores)
-        st.success(f"Avaliação registrada. Nota final: {final_score}")
-        st.experimental_rerun()
+existing = list_target_evaluations(target_type, selected_id)
 
-st.divider()
 st.subheader("Avaliações registradas")
-existing = list_ppg_evaluations(ppg_id, target_type)
 if existing:
-    df_rows = []
-    for ev in existing:
-        df_rows.append(
-            {
-                "Alvo": options.get(ev.get("target_id"), ev.get("target_id")),
-                "Nota": ev.get("final_score"),
-                "Comentários": ev.get("comments"),
-            }
-        )
-    st.dataframe(pd.DataFrame(df_rows), use_container_width=True)
+    for ev in sorted(existing, key=lambda item: item.get("created_at", ""), reverse=True):
+        with st.container():
+            st.markdown(f"**Nota final:** {ev.get('final_score')} | Criado em: {ev.get('created_at', 'N/A')}")
+            evaluator_name = people_labels.get(ev.get("evaluator_id"), ev.get("evaluator_id", "-"))
+            st.markdown(f"Avaliador: {evaluator_name}")
+            if ev.get("notes"):
+                st.write(ev.get("notes"))
 else:
-    st.info("Nenhuma avaliação registrada para este tipo.")
+    st.info("Nenhuma avaliação registrada para este item.")
+
+can_submit = role in ("coordenador", "orientador")
+if not can_submit:
+    st.info("Seu perfil permite apenas visualizar as avaliações.")
+else:
+    if st.button("Nova avaliação", type="primary"):
+        st.session_state["_show_eval_form"] = True
+
+    if st.session_state.get("_show_eval_form"):
+        st.subheader("Registrar nova avaliação")
+        st.caption("Itens do tipo 'Sim/Não' valem 5 para 'Sim' e 0 para 'Não'.")
+        with st.form("evaluation_form"):
+            scores: Dict[str, object] = {}
+            for criterion in form.get("criteria", []):
+                ctype = criterion.get("response_type")
+                label = f"{criterion.get('name')} ({criterion.get('weight')})"
+                help_text = criterion.get("description")
+                if ctype == "yes_no":
+                    scores[criterion["id"]] = st.checkbox(label, help=help_text, value=True)
+                else:
+                    scores[criterion["id"]] = st.slider(
+                        label,
+                        min_value=1,
+                        max_value=5,
+                        step=1,
+                        value=4,
+                        help=help_text,
+                    )
+            notes = st.text_area("Comentários", placeholder="Observações gerais da banca")
+            submitted = st.form_submit_button("Salvar avaliação", type="primary")
+        if submitted:
+            payload = {
+                "ppg_id": ppg_id,
+                "target_type": target_type,
+                "target_id": selected_id,
+                "form_type": target_cfg["form_type"],
+                "scores": scores,
+                "notes": notes,
+                "evaluator_id": _current_evaluator_id(),
+            }
+            saved = add_evaluation_record(payload)
+            final_score = saved.get("final_score") or calculate_weighted_score(form, scores)
+            st.success(f"Avaliação registrada. Nota final: {final_score}")
+            st.session_state.pop("_show_eval_form", None)
+            st.rerun()

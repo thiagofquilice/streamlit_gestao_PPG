@@ -1,6 +1,7 @@
 """Facade layer for the demo in-memory store."""
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from demo_context import current_ppg
@@ -8,6 +9,7 @@ from demo_seed import ensure_demo_db
 from demo_store import (
     _delete,
     _upsert,
+    add_evaluation,
     articles_by_dissertation,
     articles_by_project,
     export_db_json,
@@ -82,6 +84,8 @@ def list_ppg_members(ppg_id: str) -> List[Dict[str, Any]]:
                 "display_name": person.get("name"),
                 "label": person.get("name"),
                 "role": person.get("role"),
+                "line_id": person.get("line_id") or person.get("linha_id"),
+                "orientador_id": person.get("orientador_id"),
             }
         )
     return members
@@ -273,6 +277,32 @@ def calculate_weighted_score(form: Dict[str, Any], scores: Dict[str, Any]) -> fl
     return round(total, 2)
 
 
+def add_evaluation_record(payload: Dict[str, Any]) -> Dict[str, Any]:
+    ppg_id = payload.get("ppg_id") or current_ppg() or ""
+    form_type = payload.get("form_type") or payload.get("form_key")
+    form = get_admin_form(form_type or "")
+    scores = payload.get("scores", {})
+    computed_score = calculate_weighted_score(form, scores) if form else payload.get("final_score", 0)
+    body = {
+        **payload,
+        "ppg_id": ppg_id,
+        "form_type": form_type,
+        "final_score": computed_score,
+        "created_at": payload.get("created_at") or datetime.utcnow().isoformat(),
+    }
+    if payload.get("comments") and not payload.get("notes"):
+        body["notes"] = payload.get("comments")
+    return add_evaluation(body)
+
+
+def list_ppg_evaluations(ppg_id: str, target_type: Optional[str] = None) -> List[Dict[str, Any]]:
+    return list_evaluations(ppg_id, target_type)
+
+
+def list_target_evaluations(target_type: str, target_id: str) -> List[Dict[str, Any]]:
+    return list_evaluations(current_ppg() or "", target_type, target_id)
+
+
 def save_evaluation(
     ppg_id: str,
     target_type: str,
@@ -280,22 +310,18 @@ def save_evaluation(
     form_key: str,
     scores: Dict[str, Any],
     comments: Optional[str] = None,
+    evaluator_id: Optional[str] = None,
 ) -> Dict[str, Any]:
-    form = get_admin_form(form_key)
     payload = {
         "ppg_id": ppg_id,
         "target_type": target_type,
         "target_id": target_id,
-        "form_key": form_key,
+        "form_type": form_key,
         "scores": scores,
-        "comments": comments,
+        "notes": comments,
+        "evaluator_id": evaluator_id,
     }
-    payload["final_score"] = calculate_weighted_score(form, scores) if form else 0.0
-    return upsert_evaluation(payload)
-
-
-def list_ppg_evaluations(ppg_id: str, target_type: Optional[str] = None) -> List[Dict[str, Any]]:
-    return list_evaluations(ppg_id, target_type)
+    return add_evaluation_record(payload)
 
 
 __all__ = [name for name in globals() if not name.startswith("_")]
