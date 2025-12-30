@@ -1,351 +1,245 @@
-"""
-Data helpers for interacting with Supabase tables using row-level security (RLS).
-
-IMPORTANT:
-- All queries must be executed with an authenticated Supabase session; otherwise RLS will block access.
-- This module expects `st.session_state["auth"]` to contain:
-  - user_id
-  - email
-  - access_token
-  - refresh_token
-"""
+"""Facade layer for the demo in-memory store."""
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-import streamlit as st
-from postgrest import APIError
+from demo_context import current_ppg
+from demo_seed import ensure_demo_db
+from demo_store import (
+    _delete,
+    _upsert,
+    articles_by_dissertation,
+    articles_by_project,
+    export_db_json,
+    get_by_id,
+    get_db,
+    import_db_json,
+    list_articles,
+    list_dissertations,
+    list_lines,
+    list_people,
+    list_projects,
+    list_ptts,
+    mestrandos_by_orientador,
+    next_id,
+    orientadores_by_line,
+    ptts_by_dissertation,
+    ptts_by_project,
+    reset_db,
+)
 
-from auth import get_authed_client
+
+ensure_demo_db()
 
 
-def _client():
-    """Return an authenticated Supabase client with the current user session applied."""
-    c = get_authed_client()
-    if c is None:
-        st.error("Sessão não encontrada (token ausente). Faça login novamente.")
-        st.stop()
-    return c
+def list_ppgs() -> List[Dict[str, Any]]:
+    return get_db().get("ppgs", [])
 
 
-# ---------- Memberships ----------
+def update_ppg(ppg_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    db = get_db()
+    for row in db.get("ppgs", []):
+        if row.get("id") == ppg_id:
+            row.update(payload)
+            return row
+    raise ValueError("PPG não encontrado")
 
-def load_memberships(user_id: str) -> List[Dict[str, Any]]:
-    """Return PPG memberships for the given user."""
-    response = (
-        _client()
-        .table("memberships")
-        .select("ppg_id, role")
-        .eq("user_id", user_id)
-        .execute()
+
+# Research lines
+
+def list_research_lines(ppg_id: str) -> List[Dict[str, Any]]:
+    return list_lines(ppg_id)
+
+
+def add_research_line(ppg_id: str, name: str, description: str) -> Dict[str, Any]:
+    return _upsert(
+        "research_lines",
+        {"id": next_id("line"), "ppg_id": ppg_id, "name": name, "description": description},
     )
-    return response.data or []
 
 
-def _safe_profiles_map(user_ids: List[str]) -> Dict[str, Dict[str, Any]]:
-    if not user_ids:
-        return {}
-    try:
-        response = (
-            _client()
-            .table("profiles")
-            .select("user_id, email, display_name")
-            .in_("user_id", user_ids)
-            .execute()
-        )
-        data = response.data or []
-        return {row["user_id"]: row for row in data}
-    except (APIError, Exception):
-        return {}
+def update_research_line(line_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    payload["id"] = line_id
+    return _upsert("research_lines", payload)
 
 
-def _format_user_label(user_id: Optional[str], profile: Dict[str, Any]) -> str:
-    label = profile.get("display_name") or profile.get("email")
-    if label:
-        return label
-    if not user_id:
-        return ""
-    return f"{user_id[:8]}…" if len(user_id) > 8 else user_id
+def delete_research_line(line_id: str) -> None:
+    _delete("research_lines", line_id)
 
+
+# People
 
 def list_ppg_members(ppg_id: str) -> List[Dict[str, Any]]:
-    """Return all memberships for a given PPG (role + user_id + profile info)."""
-    response = (
-        _client()
-        .table("memberships")
-        .select("user_id, role")
-        .eq("ppg_id", ppg_id)
-        .order("role")
-        .execute()
-    )
-    rows = response.data or []
-    profile_map = _safe_profiles_map([row["user_id"] for row in rows])
     members: List[Dict[str, Any]] = []
-    for row in rows:
-        profile = profile_map.get(row["user_id"], {})
+    for person in list_people(ppg_id):
         members.append(
             {
-                "user_id": row.get("user_id"),
-                "role": row.get("role"),
-                "display_name": profile.get("display_name"),
-                "email": profile.get("email"),
-                "label": _format_user_label(row.get("user_id"), profile),
+                **person,
+                "user_id": person.get("id"),
+                "display_name": person.get("name"),
+                "label": person.get("name"),
+                "role": person.get("role"),
             }
         )
     return members
 
 
-# ---------- Research lines ----------
+def upsert_person(payload: Dict[str, Any]) -> Dict[str, Any]:
+    if not payload.get("id"):
+        payload["id"] = next_id("person")
+    return _upsert("people", payload)
 
-def list_research_lines(ppg_id: str) -> List[Dict[str, Any]]:
-    response = (
-        _client()
-        .table("research_lines")
-        .select("id, name, description, created_at")
-        .eq("ppg_id", ppg_id)
-        .order("created_at")
-        .execute()
+
+# Projects
+
+def create_project(ppg_id: str, name: str, description: Optional[str], line_id: Optional[str], status: str) -> Dict[str, Any]:
+    return _upsert(
+        "projects",
+        {
+            "id": next_id("proj"),
+            "ppg_id": ppg_id,
+            "name": name,
+            "description": description,
+            "line_id": line_id,
+            "status": status,
+            "orientadores_ids": [],
+            "mestrandos_ids": [],
+        },
     )
-    return response.data or []
-
-
-def add_research_line(ppg_id: str, name: str, description: str) -> Dict[str, Any]:
-    payload = {"ppg_id": ppg_id, "name": name, "description": description}
-    response = _client().table("research_lines").insert(payload).execute()
-    return (response.data or [{}])[0]
-
-
-def delete_research_line(line_id: Any) -> None:
-    _client().table("research_lines").delete().eq("id", line_id).execute()
-
-
-# ---------- SWOT ----------
-
-def list_swot_items(ppg_id: str) -> List[Dict[str, Any]]:
-    response = (
-        _client()
-        .table("swot_items")
-        .select("id, category, description, created_at")
-        .eq("ppg_id", ppg_id)
-        .order("created_at")
-        .execute()
-    )
-    return response.data or []
-
-
-def add_swot_item(ppg_id: str, category: str, description: str) -> Dict[str, Any]:
-    payload = {"ppg_id": ppg_id, "category": category, "description": description}
-    response = _client().table("swot_items").insert(payload).execute()
-    return (response.data or [{}])[0]
-
-
-def delete_swot_item(item_id: Any) -> None:
-    _client().table("swot_items").delete().eq("id", item_id).execute()
-
-
-# ---------- Projects ----------
-
-def list_projects(ppg_id: str) -> List[Dict[str, Any]]:
-    try:
-        response = (
-            _client()
-            .table("projects")
-            .select("id, name, description, parent_project_id, created_at, ppg_id")
-            .eq("ppg_id", ppg_id)
-            .order("created_at", desc=True)
-            .execute()
-        )
-        return response.data or []
-    except APIError:
-        st.error(
-            "Erro ao consultar projetos. Rode o script db/ddl.sql no Supabase para atualizar o schema/policies."
-        )
-        return []
-
-
-def create_project(
-    ppg_id: str,
-    name: str,
-    description: Optional[str] = None,
-    parent_project_id: Optional[str] = None,
-) -> Dict[str, Any]:
-    payload = {
-        "ppg_id": ppg_id,
-        "name": name,
-        "description": description,
-        "parent_project_id": parent_project_id,
-    }
-    response = _client().table("projects").insert(payload).execute()
-    return (response.data or [{}])[0]
 
 
 def update_project(project_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
-    response = _client().table("projects").update(payload).eq("id", project_id).execute()
-    return (response.data or [{}])[0]
+    payload["id"] = project_id
+    project = _upsert("projects", payload)
+    return project
 
 
 def delete_project(project_id: str) -> None:
-    _client().table("projects").delete().eq("id", project_id).execute()
+    _delete("projects", project_id)
+    # remove links from articles/dissertations/ptts
+    for collection in ["articles", "dissertations", "ptts"]:
+        for row in get_db().get(collection, []):
+            if row.get("project_id") == project_id:
+                row["project_id"] = None
 
 
-def get_project_orientadores(project_id: str) -> List[Dict[str, Any]]:
-    response = (
-        _client()
-        .table("project_orientadores")
-        .select("user_id")
-        .eq("project_id", project_id)
-        .execute()
-    )
-    user_ids = [row["user_id"] for row in (response.data or [])]
-    profiles = _safe_profiles_map(user_ids)
-    return [
-        {
-            "user_id": uid,
-            "display_name": _format_user_label(uid, profiles.get(uid, {})),
-            "email": profiles.get(uid, {}).get("email"),
-        }
-        for uid in user_ids
-    ]
+def set_project_orientadores(project_id: str, orientadores: List[str]) -> None:
+    project = get_by_id("projects", project_id)
+    if project is not None:
+        project["orientadores_ids"] = orientadores
 
 
-def get_project_mestrandos(project_id: str) -> List[Dict[str, Any]]:
-    response = (
-        _client()
-        .table("project_mestrandos")
-        .select("user_id")
-        .eq("project_id", project_id)
-        .execute()
-    )
-    user_ids = [row["user_id"] for row in (response.data or [])]
-    profiles = _safe_profiles_map(user_ids)
-    return [
-        {
-            "user_id": uid,
-            "display_name": _format_user_label(uid, profiles.get(uid, {})),
-            "email": profiles.get(uid, {}).get("email"),
-        }
-        for uid in user_ids
-    ]
-
-
-def set_project_orientadores(project_id: str, user_ids: List[str]) -> None:
-    client = _client()
-    client.table("project_orientadores").delete().eq("project_id", project_id).execute()
-    if not user_ids:
-        return
-    rows = [{"project_id": project_id, "user_id": uid} for uid in user_ids]
-    client.table("project_orientadores").insert(rows).execute()
-
-
-def set_project_mestrandos(project_id: str, user_ids: List[str]) -> None:
-    client = _client()
-    client.table("project_mestrandos").delete().eq("project_id", project_id).execute()
-    if not user_ids:
-        return
-    rows = [{"project_id": project_id, "user_id": uid} for uid in user_ids]
-    client.table("project_mestrandos").insert(rows).execute()
+def set_project_mestrandos(project_id: str, mestrandos: List[str]) -> None:
+    project = get_by_id("projects", project_id)
+    if project is not None:
+        project["mestrandos_ids"] = mestrandos
 
 
 def list_project_dissertations(project_id: str) -> List[Dict[str, Any]]:
-    response = (
-        _client()
-        .table("dissertations")
-        .select("id, title, project_id")
-        .eq("project_id", project_id)
-        .execute()
-    )
-    return response.data or []
+    return [d for d in list_dissertations(current_ppg() or "") if d.get("project_id") == project_id]
 
 
 def list_project_articles(project_id: str) -> List[Dict[str, Any]]:
-    response = (
-        _client()
-        .table("articles")
-        .select("id, title, project_id")
-        .eq("project_id", project_id)
-        .execute()
-    )
-    return response.data or []
+    return articles_by_project(project_id)
 
 
 def list_project_ptts(project_id: str) -> List[Dict[str, Any]]:
-    response = (
-        _client()
-        .table("ptts")
-        .select("id, title, project_id")
-        .eq("project_id", project_id)
-        .execute()
-    )
-    return response.data or []
+    return ptts_by_project(project_id)
 
 
-# ---------- Articles ----------
-
-def list_articles(ppg_id: str) -> List[Dict[str, Any]]:
-    response = (
-        _client()
-        .table("articles")
-        .select(
-            "id, title, authors, year, status, created_at, project_id, orientador_user_id, mestrando_user_id"
-        )
-        .eq("ppg_id", ppg_id)
-        .order("created_at", desc=True)
-        .execute()
-    )
-    return response.data or []
+def get_project_orientadores(project_id: str) -> List[Dict[str, Any]]:
+    proj = get_by_id("projects", project_id) or {}
+    ids = proj.get("orientadores_ids", [])
+    return [p for p in get_db().get("people", []) if p.get("id") in ids]
 
 
-def upsert_article(data: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Insert or update an article.
-    Expected keys (minimum): ppg_id, title
-    Optional: authors, year, status, etc.
-    """
-    response = _client().table("articles").upsert(data, returning="representation").execute()
-    return (response.data or [{}])[0]
+def get_project_mestrandos(project_id: str) -> List[Dict[str, Any]]:
+    proj = get_by_id("projects", project_id) or {}
+    ids = proj.get("mestrandos_ids", [])
+    return [p for p in get_db().get("people", []) if p.get("id") in ids]
 
 
-# ---------- Dissertations ----------
+# Dissertations
 
-def list_dissertations(ppg_id: str) -> List[Dict[str, Any]]:
-    response = (
-        _client()
-        .table("dissertations")
-        .select("id, title, summary, project_id, created_at")
-        .eq("ppg_id", ppg_id)
-        .order("created_at", desc=True)
-        .execute()
-    )
-    return response.data or []
+def upsert_dissertation(payload: Dict[str, Any]) -> Dict[str, Any]:
+    if not payload.get("id"):
+        payload["id"] = next_id("diss")
+    diss = _upsert("dissertations", payload)
+    _sync_dissertation_links(diss)
+    return diss
 
 
-def upsert_dissertation(data: Dict[str, Any]) -> Dict[str, Any]:
-    response = (
-        _client()
-        .table("dissertations")
-        .upsert(data, returning="representation")
-        .execute()
-    )
-    return (response.data or [{}])[0]
+def delete_dissertation(dissertation_id: str) -> None:
+    _delete("dissertations", dissertation_id)
+    for article in get_db().get("articles", []):
+        if article.get("dissertation_id") == dissertation_id:
+            article["dissertation_id"] = None
+    for ptt in get_db().get("ptts", []):
+        if ptt.get("dissertation_id") == dissertation_id:
+            ptt["dissertation_id"] = None
 
 
-# ---------- PTTs ----------
+def _sync_dissertation_links(dissertation: Dict[str, Any]) -> None:
+    diss_id = dissertation.get("id")
+    desired_articles = set(dissertation.get("artigos_ids", []))
+    desired_ptts = set(dissertation.get("ptts_ids", []))
+    for article in get_db().get("articles", []):
+        if article.get("dissertation_id") == diss_id and article.get("id") not in desired_articles:
+            article["dissertation_id"] = None
+        if article.get("id") in desired_articles:
+            article["dissertation_id"] = diss_id
+    for ptt in get_db().get("ptts", []):
+        if ptt.get("dissertation_id") == diss_id and ptt.get("id") not in desired_ptts:
+            ptt["dissertation_id"] = None
+        if ptt.get("id") in desired_ptts:
+            ptt["dissertation_id"] = diss_id
 
-def list_ptts(ppg_id: str) -> List[Dict[str, Any]]:
-    response = (
-        _client()
-        .table("ptts")
-        .select("id, title, summary, project_id, created_at")
-        .eq("ppg_id", ppg_id)
-        .order("created_at", desc=True)
-        .execute()
-    )
-    return response.data or []
+
+# Articles
+
+def upsert_article(payload: Dict[str, Any]) -> Dict[str, Any]:
+    is_new = not payload.get("id")
+    if is_new:
+        payload["id"] = next_id("art")
+    article = _upsert("articles", payload)
+    _maybe_attach_to_dissertation(article)
+    return article
 
 
-def upsert_ptt(data: Dict[str, Any]) -> Dict[str, Any]:
-    response = _client().table("ptts").upsert(data, returning="representation").execute()
-    return (response.data or [{}])[0]
+def _maybe_attach_to_dissertation(article: Dict[str, Any]) -> None:
+    diss_id = article.get("dissertation_id")
+    if diss_id:
+        diss = get_by_id("dissertations", diss_id)
+        if diss:
+            ids = set(diss.get("artigos_ids", []))
+            ids.add(article["id"])
+            diss["artigos_ids"] = list(ids)
+    for diss in get_db().get("dissertations", []):
+        if diss.get("id") != diss_id and article.get("id") in diss.get("artigos_ids", []):
+            diss["artigos_ids"] = [aid for aid in diss.get("artigos_ids", []) if aid != article.get("id")]
+
+
+# PTTs
+
+def upsert_ptt(payload: Dict[str, Any]) -> Dict[str, Any]:
+    if not payload.get("id"):
+        payload["id"] = next_id("ptt")
+    ptt = _upsert("ptts", payload)
+    _maybe_attach_ptt_to_dissertation(ptt)
+    return ptt
+
+
+def _maybe_attach_ptt_to_dissertation(ptt: Dict[str, Any]) -> None:
+    diss_id = ptt.get("dissertation_id")
+    if diss_id:
+        diss = get_by_id("dissertations", diss_id)
+        if diss:
+            ids = set(diss.get("ptts_ids", []))
+            ids.add(ptt["id"])
+            diss["ptts_ids"] = list(ids)
+    for diss in get_db().get("dissertations", []):
+        if diss.get("id") != diss_id and ptt.get("id") in diss.get("ptts_ids", []):
+            diss["ptts_ids"] = [pid for pid in diss.get("ptts_ids", []) if pid != ptt.get("id")]
 
 
 __all__ = [name for name in globals() if not name.startswith("_")]

@@ -2,66 +2,52 @@ from __future__ import annotations
 
 import streamlit as st
 
-from auth import AuthState, get_auth_state, login, logout
-from data import load_memberships
+from demo_context import current_person, current_ppg, current_profile, get_ctx, set_person, set_ppg, set_profile
+from demo_seed import ensure_demo_db
+from demo_store import export_db_json, import_db_json, list_people, reset_db
 
 
 def _set_page_config() -> None:
-    st.set_page_config(page_title="PPG Manager", layout="wide")
+    st.set_page_config(page_title="PPG Manager (Demo)", layout="wide")
 
 
-def _require_login() -> AuthState:
-    auth_state = get_auth_state()
-    if auth_state:
-        return auth_state
+def _sidebar() -> None:
+    ensure_demo_db()
+    ctx = get_ctx()
+    st.sidebar.title("PPG Demo")
 
-    st.title("PPG Manager")
-    st.subheader("Acesso restrito")
-    with st.form("login_form"):
-        email = st.text_input("E-mail institucional")
-        password = st.text_input("Senha", type="password")
-        submitted = st.form_submit_button("Entrar")
-    if submitted:
-        try:
-            auth_state = login(email, password)
-            if auth_state:
-                st.success("Autenticado com sucesso.")
-                st.rerun()
+    profiles = ["coordenador", "orientador", "mestrando"]
+    profile = st.sidebar.selectbox("Perfil atual", profiles, index=profiles.index(ctx.get("profile", "coordenador")))
+    set_profile(profile)
 
-            else:
-                st.error("Credenciais inválidas. Verifique seu e-mail e senha.")
-        except Exception as exc:  # pragma: no cover - feedback para o usuário
-            st.error(f"Erro ao autenticar: {exc}")
-    st.stop()
-
-
-def _select_membership(auth_state: AuthState) -> None:
-    memberships = load_memberships(auth_state.user_id)
-    if not memberships:
-        st.warning("Seu usuário não possui vínculo com nenhum PPG. Solicite acesso ao coordenador.")
-        st.stop()
-
-    if not st.session_state.get("ppg_id"):
-        first = memberships[0]
-        st.session_state["ppg_id"] = first.get("ppg_id")
-        st.session_state["role"] = first.get("role")
-
-    options = {f"PPG {m['ppg_id']} ({m['role']})": m for m in memberships}
-    selected_label = st.sidebar.selectbox("Selecione o PPG", list(options.keys()))
-    membership = options[selected_label]
-    st.session_state["ppg_id"] = membership.get("ppg_id")
-    st.session_state["role"] = membership.get("role")
-
-
-def _render_sidebar(auth_state: AuthState) -> None:
-    st.sidebar.title("PPG Manager")
-    st.sidebar.caption(f"Usuário: {auth_state.email}")
-    if st.session_state.get("ppg_id"):
-        st.sidebar.caption(
-            f"PPG selecionado: {st.session_state['ppg_id']} | Perfil: {st.session_state.get('role')}"
+    people = list_people(ctx.get("ppg_id"))
+    person_options = [p for p in people if p.get("role") == profile]
+    if profile != "coordenador":
+        selected = st.sidebar.selectbox(
+            "Pessoa atual",
+            [None] + [p.get("id") for p in person_options],
+            format_func=lambda pid: next((p.get("name") for p in people if p.get("id") == pid), "Não definido")
+            if pid
+            else "Selecione",
+            index=0 if ctx.get("person_id") is None else ([None] + [p.get("id") for p in person_options]).index(ctx.get("person_id")),
         )
-    if st.sidebar.button("Sair", use_container_width=True):
-        logout()
+        set_person(selected)
+    else:
+        set_person(None)
+
+    ppg_id = ctx.get("ppg_id")
+    st.sidebar.write(f"PPG atual: {ppg_id}")
+
+    st.sidebar.divider()
+    if st.sidebar.button("Resetar demo", use_container_width=True):
+        reset_db()
+        st.rerun()
+
+    st.sidebar.download_button("Exportar JSON", export_db_json(), file_name="demo_db.json", use_container_width=True)
+    uploaded = st.sidebar.file_uploader("Importar JSON", type="json")
+    if uploaded:
+        import_db_json(uploaded)
+        st.success("Banco demo importado.")
         st.rerun()
 
     st.sidebar.divider()
@@ -78,11 +64,15 @@ def _render_sidebar(auth_state: AuthState) -> None:
 
 def main() -> None:
     _set_page_config()
-    auth_state = _require_login()
-    _select_membership(auth_state)
-    _render_sidebar(auth_state)
-
-    st.success("Selecione uma página na barra lateral para começar.")
+    ensure_demo_db()
+    _sidebar()
+    st.title("PPG Manager - Demo")
+    st.success("Use a barra lateral para navegar entre as páginas.")
+    st.info(
+        "Esta versão utiliza apenas dados em memória (st.session_state) com seed pré-carregado para validar vínculos entre entidades."
+    )
+    ctx = get_ctx()
+    st.write(f"Perfil: {current_profile()} | Pessoa: {current_person() or 'Coordenação'} | PPG: {current_ppg()}")
 
 
 if __name__ == "__main__":

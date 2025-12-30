@@ -5,6 +5,7 @@ from typing import List
 
 import streamlit as st
 
+from demo_context import current_ppg, current_profile
 from data import (
     create_project,
     delete_project,
@@ -15,6 +16,7 @@ from data import (
     list_project_dissertations,
     list_project_ptts,
     list_projects,
+    list_research_lines,
     set_project_mestrandos,
     set_project_orientadores,
     update_project,
@@ -22,10 +24,9 @@ from data import (
 from rbac import can
 
 st.title("Projetos")
-ppg_id = st.session_state.get("ppg_id")
-role = st.session_state.get("role")
-if not ppg_id or not role:
-    st.warning("Faça login e selecione um PPG para continuar.")
+ppg_id = current_ppg()
+role = current_profile()
+if not ppg_id:
     st.stop()
 
 try:
@@ -43,23 +44,26 @@ can_manage_projects = role in ("coordenador", "orientador")
 
 projects = list_projects(ppg_id)
 project_options = {p["id"]: p.get("name", "") for p in projects}
+lines = list_research_lines(ppg_id)
+line_options = {l["id"]: l.get("name") for l in lines}
 
 if can_manage_projects:
     st.subheader("Cadastrar projeto")
     with st.form("form_new_project"):
         name = st.text_input("Nome do projeto")
         description = st.text_area("Descrição")
-        parent_project_id = st.selectbox(
-            "Vínculo a um projeto (opcional)",
-            [None] + list(project_options.keys()),
-            format_func=lambda pid: project_options.get(pid, "Sem vínculo") if pid else "Sem vínculo",
+        line_id = st.selectbox(
+            "Linha de pesquisa (opcional)",
+            [None] + list(line_options.keys()),
+            format_func=lambda lid: line_options.get(lid, "Sem linha") if lid else "Sem linha",
         )
+        status = st.selectbox("Status", ["planejamento", "em_andamento", "concluido"])
         submitted = st.form_submit_button("Salvar projeto")
     if submitted:
         if not name:
             st.error("Nome é obrigatório.")
         else:
-            create_project(ppg_id, name, description or None, parent_project_id)
+            create_project(ppg_id, name, description or None, line_id, status)
             st.success("Projeto criado com sucesso.")
             st.experimental_rerun()
 else:
@@ -81,19 +85,22 @@ if projects:
                     col1, col2 = st.columns(2)
                     with col1:
                         name_edit = st.text_input("Nome", value=project.get("name") or "")
-                        parent_edit = st.selectbox(
-                            "Projeto pai (opcional)",
-                            [None] + [pid for pid in project_options.keys() if pid != project["id"]],
-                            format_func=lambda pid: project_options.get(pid, "Sem vínculo") if pid else "Sem vínculo",
-                            index=(
-                                [None] + [pid for pid in project_options.keys() if pid != project["id"]]
-                            ).index(project.get("parent_project_id"))
-                            if project.get("parent_project_id") in project_options
+                        line_edit = st.selectbox(
+                            "Linha de pesquisa",
+                            [None] + list(line_options.keys()),
+                            format_func=lambda lid: line_options.get(lid, "Sem linha") if lid else "Sem linha",
+                            index=([None] + list(line_options.keys())).index(project.get("line_id"))
+                            if project.get("line_id") in line_options
                             else 0,
                         )
                     with col2:
                         description_edit = st.text_area(
                             "Descrição", value=project.get("description") or "", height=120
+                        )
+                        status_edit = st.selectbox(
+                            "Status",
+                            ["planejamento", "em_andamento", "concluido"],
+                            index=["planejamento", "em_andamento", "concluido"].index(project.get("status", "em_andamento")),
                         )
                     orientador_selected = st.multiselect(
                         "Orientadores", options=[m["user_id"] for m in orientadores], default=orientadores_atual,
@@ -105,14 +112,15 @@ if projects:
                     )
                     submitted_edit = st.form_submit_button("Salvar alterações")
                 if submitted_edit:
-                    update_project(
-                        project["id"],
-                        {
-                            "name": name_edit,
-                            "description": description_edit,
-                            "parent_project_id": parent_edit,
-                        },
-                    )
+                        update_project(
+                            project["id"],
+                            {
+                                "name": name_edit,
+                                "description": description_edit,
+                                "line_id": line_edit,
+                                "status": status_edit,
+                            },
+                        )
                     set_project_orientadores(project["id"], orientador_selected)
                     set_project_mestrandos(project["id"], mestrando_selected)
                     st.success("Projeto atualizado.")
