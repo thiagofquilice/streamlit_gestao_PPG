@@ -53,14 +53,40 @@ can_create_eval = role in ("coordenador", "orientador")
 can_create = can("criar")
 can_edit = can("editar")
 
-projects = {p["id"]: p.get("name") for p in list_projects(ppg_id)}
+project_rows = list_projects(ppg_id)
+projects = {p["id"]: p.get("name") for p in project_rows}
+projects_by_id = {p["id"]: p for p in project_rows}
 lines = {line["id"]: line.get("name") for line in list_research_lines(ppg_id)}
-disserts = {d["id"]: d.get("title") for d in list_dissertations(ppg_id)}
+dissertation_rows = list_dissertations(ppg_id)
+disserts = {d["id"]: d.get("title") for d in dissertation_rows}
+dissertations_by_id = {d["id"]: d for d in dissertation_rows}
 people = {m["user_id"]: m.get("display_name") or m.get("label") or m["user_id"] for m in list_ppg_members(ppg_id)}
 
 articles = list_articles(ppg_id)
 form_articles = get_admin_form("articles")
 journal_rating_options = form_articles.get("journal_ratings") or ["A1", "A2", "A3", "A4", "B1", "B2", "B3", "B4", "C"]
+
+current_person_id = current_person()
+
+
+def _can_edit_article(article: dict) -> bool:
+    if role == "coordenador":
+        return True
+    if role != "orientador" or not current_person_id:
+        return False
+    if article.get("created_by") == current_person_id:
+        return True
+    project = projects_by_id.get(article.get("project_id")) or {}
+    if current_person_id in (project.get("orientadores_ids") or []):
+        return True
+    dissertation = dissertations_by_id.get(article.get("dissertation_id")) or {}
+    return dissertation.get("orientador_id") == current_person_id
+
+
+def _mestrando_own_dissertations() -> list[dict]:
+    if role != "mestrando" or not current_person_id:
+        return []
+    return [d for d in dissertation_rows if d.get("mestrando_id") == current_person_id]
 
 if not articles:
     st.info("Nenhum artigo cadastrado para este PPG.")
@@ -88,7 +114,7 @@ for article in filtered_articles:
             f"Classificação da revista publicada: {article.get('journal_published_rating') or 'N/A'}"
         )
 
-        if can_edit:
+        if can_edit and _can_edit_article(article):
             with st.form(f"article-edit-{article['id']}"):
                 status = status_selector("Status", article.get("status"), key=f"article-status-control-{article['id']}")
                 target_index = journal_rating_options.index(article.get("journal_target_rating")) if article.get("journal_target_rating") in journal_rating_options else 0
@@ -147,39 +173,61 @@ if can_create:
         st.session_state[add_new_key] = True
 
     if st.session_state[add_new_key]:
+        own_dissertations = _mestrando_own_dissertations()
+        mestrando_without_dissertation = role == "mestrando" and not own_dissertations
         with st.form("form-article"):
             title = st.text_input("Título")
             summary = st.text_area("Resumo")
             year = st.number_input("Ano", min_value=1900, max_value=2100, value=2024, step=1)
-            project_id = st.selectbox(
-                "Projeto",
-                list(projects.keys()),
-                format_func=lambda pid: projects.get(pid, "Projeto inválido"),
-            )
-            line_id = st.selectbox(
-                "Linha (opcional)",
-                [None] + list(lines.keys()),
-                format_func=lambda lid: lines.get(lid, "Sem linha") if lid else "Sem linha",
-            )
-            dissertation_id = st.selectbox(
-                "Dissertação (opcional)",
-                [None] + list(disserts.keys()),
-                format_func=lambda did: disserts.get(did, "Sem vínculo") if did else "Sem vínculo",
-            )
+
+            if role == "mestrando":
+                dissertation_id = st.selectbox(
+                    "Dissertação (obrigatória)",
+                    [d.get("id") for d in own_dissertations],
+                    format_func=lambda did: disserts.get(did, "Sem vínculo"),
+                    disabled=mestrando_without_dissertation,
+                ) if own_dissertations else None
+                selected_dissertation = dissertations_by_id.get(dissertation_id) if dissertation_id else {}
+                project_id = selected_dissertation.get("project_id")
+                line_id = selected_dissertation.get("line_id")
+                st.caption(f"Projeto vinculado: {projects.get(project_id) or 'N/A'}")
+                st.caption(f"Linha vinculada: {lines.get(line_id) or 'Sem linha'}")
+            else:
+                project_id = st.selectbox(
+                    "Projeto",
+                    list(projects.keys()),
+                    format_func=lambda pid: projects.get(pid, "Projeto inválido"),
+                )
+                line_id = st.selectbox(
+                    "Linha (opcional)",
+                    [None] + list(lines.keys()),
+                    format_func=lambda lid: lines.get(lid, "Sem linha") if lid else "Sem linha",
+                )
+                dissertation_id = st.selectbox(
+                    "Dissertação (opcional)",
+                    [None] + list(disserts.keys()),
+                    format_func=lambda did: disserts.get(did, "Sem vínculo") if did else "Sem vínculo",
+                )
+
             status = status_selector("Status", None, key="article-status-new")
-            journal_target_rating = st.selectbox(
-                "Classificação da revista (execução/planejamento)",
-                journal_rating_options,
-                key="article-target-rating-new",
-            )
-            journal_published_rating = st.selectbox(
-                "Classificação da revista publicada (conclusão)",
-                journal_rating_options,
-                key="article-published-rating-new",
-            )
+            if role != "mestrando":
+                journal_target_rating = st.selectbox(
+                    "Classificação da revista (execução/planejamento)",
+                    journal_rating_options,
+                    key="article-target-rating-new",
+                )
+                journal_published_rating = st.selectbox(
+                    "Classificação da revista publicada (conclusão)",
+                    journal_rating_options,
+                    key="article-published-rating-new",
+                )
+            else:
+                journal_target_rating = None
+                journal_published_rating = None
+                st.caption("Mestrando não pode registrar classificação da revista.")
             save_col, cancel_col = st.columns(2)
             with save_col:
-                submitted = st.form_submit_button("Salvar", use_container_width=True)
+                submitted = st.form_submit_button("Salvar", use_container_width=True, disabled=mestrando_without_dissertation)
             with cancel_col:
                 hide_form = st.form_submit_button("Cancelar", use_container_width=True)
 
@@ -188,7 +236,9 @@ if can_create:
             st.rerun()
 
         if submitted and title:
-            if status == "concluido" and not journal_published_rating:
+            if role == "mestrando" and not dissertation_id:
+                st.error("Você só pode cadastrar artigo vinculado à sua dissertação.")
+            elif status == "concluido" and role != "mestrando" and not journal_published_rating:
                 st.error("Um artigo só pode ser concluído quando publicado. Informe a classificação da revista publicada.")
             else:
                 try:
@@ -203,7 +253,8 @@ if can_create:
                             "dissertation_id": dissertation_id,
                             "status": status,
                             "journal_target_rating": journal_target_rating,
-                            "journal_published_rating": journal_published_rating if status == "concluido" else None,
+                            "journal_published_rating": journal_published_rating if status == "concluido" and role != "mestrando" else None,
+                            "created_by": current_person_id,
                         }
                     )
                     st.success("Artigo salvo.")

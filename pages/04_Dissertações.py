@@ -67,6 +67,21 @@ orientadores = {m["user_id"]: m.get("display_name") or m["user_id"] for m in mem
 mestrandos = {m["user_id"]: m.get("display_name") or m["user_id"] for m in members if m.get("role") == "mestrando"}
 people = {m["user_id"]: m.get("display_name") or m.get("label") or m["user_id"] for m in members}
 
+current_person_id = current_person()
+
+
+def _can_edit_dissertation(diss: dict) -> bool:
+    if role == "coordenador":
+        return True
+    if role != "orientador" or not current_person_id:
+        return False
+    if diss.get("created_by") == current_person_id:
+        return True
+    if diss.get("orientador_id") == current_person_id:
+        return True
+    project = next((p for p in projects if p.get("id") == diss.get("project_id")), {})
+    return current_person_id in (project.get("orientadores_ids") or [])
+
 items = list_dissertations(ppg_id)
 all_articles = list_articles(ppg_id)
 all_ptts = list_ptts(ppg_id)
@@ -121,7 +136,7 @@ if items:
                 evaluator_id=current_person(),
             )
 
-            if can_edit:
+            if can_edit and _can_edit_dissertation(diss):
                 with st.form(f"edit-diss-{diss['id']}"):
                     title = st.text_input("Título", value=diss.get("title", ""))
                     summary = st.text_area("Resumo", value=diss.get("summary") or "")
@@ -176,6 +191,7 @@ if items:
                                 "status": status,
                                 "artigos_ids": diss.get("artigos_ids", []),
                                 "ptts_ids": diss.get("ptts_ids", []),
+                                "created_by": diss.get("created_by"),
                             }
                         )
                         st.success("Dissertação atualizada.")
@@ -247,6 +263,7 @@ if can_create:
                         "status": status,
                         "artigos_ids": [],
                         "ptts_ids": [],
+                        "created_by": current_person_id,
                     }
                 )
                 st.success("Dissertação salva.")

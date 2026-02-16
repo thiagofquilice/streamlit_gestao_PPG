@@ -9,6 +9,7 @@ from demo_store import export_db_json, import_db_json, list_people, reset_db
 
 PAGE_LINKS = [
     ("pages/02_PPG_Admin.py", "PPG Admin"),
+    ("pages/10_Cadastro_de_pessoal.py", "Cadastro de pessoal"),
     ("pages/01_Visão_Geral.py", "Visão Geral"),
     ("pages/03_Linhas_de_Pesquisa.py", "Linhas de Pesquisa"),
     ("pages/03_Projetos.py", "Projetos"),

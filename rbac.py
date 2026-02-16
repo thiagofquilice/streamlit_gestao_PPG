@@ -9,7 +9,7 @@ from demo_context import current_profile
 ROLE_PERMS = {
     "coordenador": {"ver", "criar", "editar", "apagar", "admin"},
     "orientador": {"ver", "criar", "editar"},
-    "mestrando": {"ver", "criar", "editar"},
+    "mestrando": {"ver", "criar"},
 }
 
 

@@ -6,10 +6,11 @@ from typing import Any, Dict, List
 import pandas as pd
 import streamlit as st
 
-from demo_context import current_ppg, current_profile
+from demo_context import current_ppg, current_profile, current_person
 from demo_seed import ensure_demo_db
 from data import (
     create_project,
+    update_project,
     list_ppg_members,
     list_project_articles,
     list_project_dissertations,
@@ -67,6 +68,19 @@ if selected_filter_key is not None:
 st.caption(
     "Visualização no DEMO. Cada projeto mostra vínculos com orientadores, mestrandos, dissertações, artigos e PTTs."
 )
+
+
+current_person_id = current_person()
+
+
+def _can_edit_project(project: Dict[str, Any]) -> bool:
+    if role == "coordenador":
+        return True
+    if role != "orientador" or not current_person_id:
+        return False
+    linked_orientador = current_person_id in (project.get("orientadores_ids") or [])
+    created_by_me = project.get("created_by") == current_person_id
+    return linked_orientador or created_by_me
 
 
 def _render_project_tabs(project: Dict[str, Any]) -> None:
@@ -163,6 +177,29 @@ def _render_project_card(project: Dict[str, Any]) -> None:
         st.caption(f"Docentes do projeto: {', '.join(docentes_proj) if docentes_proj else '-'}")
         if project.get("description"):
             st.write(project.get("description"))
+
+        if _can_edit_project(project):
+            with st.form(f"edit-project-{project['id']}"):
+                edit_name = st.text_input("Nome do projeto", value=project.get("name") or "")
+                edit_description = st.text_area("Descrição", value=project.get("description") or "")
+                status_display = st.selectbox(
+                    "Status",
+                    selector_labels(),
+                    index=selector_labels().index(status_label(project.get("status"))),
+                    key=f"project-status-{project['id']}",
+                )
+                submitted = st.form_submit_button("Salvar alterações", use_container_width=True)
+            if submitted and edit_name.strip():
+                payload = {
+                    **project,
+                    "name": edit_name.strip(),
+                    "description": edit_description.strip(),
+                    "status": selector_label_to_key(status_display),
+                }
+                update_project(project["id"], payload)
+                st.success("Projeto atualizado.")
+                st.rerun()
+
         _render_project_tabs(project)
 
 
@@ -206,7 +243,7 @@ if role in ("coordenador", "orientador"):
                 st.warning("Informe o nome do projeto.")
             else:
                 line_id = line_options.get(selected_line)
-                create_project(ppg_id, name.strip(), description.strip(), line_id, status)
+                create_project(ppg_id, name.strip(), description.strip(), line_id, status, created_by=current_person_id)
                 st.success("Projeto adicionado com sucesso.")
                 st.session_state.show_add_project_form = False
                 st.rerun()
