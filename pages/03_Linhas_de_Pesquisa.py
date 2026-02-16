@@ -12,6 +12,7 @@ from demo_seed import ensure_demo_db
 from demo_store import get_db
 from data import add_research_line
 from layout import configure_page, render_sidebar
+from navigation_utils import consume_nav_target, navigate_to
 from status_utils import available_filter_labels, filter_label_to_key, status_label
 
 ensure_demo_db()
@@ -90,6 +91,17 @@ def _line_docentes(line: Dict[str, Any], people: List[Dict[str, Any]]) -> Tuple[
     return permanentes, colaboradores
 
 
+def _render_entity_links(items: List[Dict[str, Any]], label_key: str, page_path: str, target_type: str, prefix: str) -> None:
+    if not items:
+        st.caption("Nenhum item vinculado.")
+        return
+    for idx, item in enumerate(items):
+        item_id = item.get("id")
+        label = item.get(label_key) or item_id or "(Sem título)"
+        if st.button(label, key=f"{prefix}-{item_id or idx}", type="tertiary"):
+            navigate_to(page_path, target_type, item_id)
+
+
 def _project_tabs(
     project: Dict[str, Any],
     project_mestrandos: List[Dict[str, Any]],
@@ -141,22 +153,10 @@ def _project_tabs(
     )
 
     with tabs[0]:
-        if project_mestrandos:
-            mestrandos_df = pd.DataFrame(
-                [
-                    {
-                        "Nome": m.get("name"),
-                        "Situação": m.get("status", "-"),
-                        "Orientador": _person_name(people_map, m.get("orientador_id")),
-                    }
-                    for m in project_mestrandos
-                ]
-            )
-            st.dataframe(mestrandos_df, use_container_width=True, hide_index=True)
-        else:
-            st.info("Sem mestrandos vinculados ao projeto.")
+        _render_entity_links(project_mestrandos, "name", "pages/10_Cadastro_de_pessoal.py", "person", f"line-proj-mestrando-{project.get('id')}")
 
     with tabs[1]:
+        _render_entity_links(project_dissertations, "title", "pages/04_Dissertações.py", "dissertation", f"line-proj-diss-{project.get('id')}")
         if project_dissertations:
             rows = []
             for diss in project_dissertations:
@@ -180,6 +180,7 @@ def _project_tabs(
             st.info("Sem dissertações vinculadas ao projeto.")
 
     with tabs[2]:
+        _render_entity_links(project_articles, "title", "pages/05_Artigos.py", "article", f"line-proj-article-{project.get('id')}")
         if project_articles:
             article_rows = []
             for article in project_articles:
@@ -199,20 +200,8 @@ def _project_tabs(
             st.info("Sem artigos vinculados ao projeto.")
 
     with tabs[3]:
-        if project_ptts:
-            ptts_df = pd.DataFrame(
-                [
-                    {
-                        "Título": ptt.get("title"),
-                        "Tipo": ptt.get("tipo_ptt") or "-",
-                        "Ano": ptt.get("year", "-"),
-                        "Status": status_label(ptt.get("status")),
-                    }
-                    for ptt in project_ptts
-                ]
-            )
-            st.dataframe(ptts_df, use_container_width=True, hide_index=True)
-        else:
+        _render_entity_links(project_ptts, "title", "pages/06_PTTs.py", "ptt", f"line-proj-ptt-{project.get('id')}")
+        if not project_ptts:
             st.info("Sem PTTs vinculados ao projeto.")
 
     with tabs[4]:
@@ -307,6 +296,7 @@ st.session_state["linhas_filter_year"] = year_option
 st.session_state["linhas_filter_status"] = status_option
 
 people_map = {p.get("id"): p for p in people}
+selected_line_id = consume_nav_target("research_line")
 
 for line in lines:
     line_id = line.get("id")
@@ -343,7 +333,7 @@ for line in lines:
         f"Dissertações: {len(line_dissertations)} | Artigos: {len(unique_articles)}"
     )
 
-    with st.expander(label, expanded=False):
+    with st.expander(label, expanded=(selected_line_id == line_id)):
         st.subheader("Descrição")
         description = line.get("description") or "Sem descrição."
         if len(description) > 240:

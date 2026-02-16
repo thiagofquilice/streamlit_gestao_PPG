@@ -5,6 +5,7 @@ from demo_seed import ensure_demo_db
 import streamlit as st
 
 from layout import configure_page, render_sidebar
+from navigation_utils import consume_nav_target
 from components.evaluation_section import render_evaluation_section
 
 from demo_context import current_ppg, current_profile, current_person
@@ -98,9 +99,11 @@ selected_filter_key = filter_label_to_key(status_filter)
 if selected_filter_key is not None:
     filtered_articles = [article for article in articles if (article.get("status") or "") == selected_filter_key]
 
+selected_target_id = consume_nav_target("article")
+
 for article in filtered_articles:
     title_with_status = f"{article.get('title') or '(Sem título)'} | Status: {status_label(article.get('status'))}"
-    with st.expander(title_with_status, expanded=False):
+    with st.expander(title_with_status, expanded=(selected_target_id == article.get("id"))):
         st.write(article.get("summary") or "Sem resumo")
         st.caption(
             f"Projeto: {projects.get(article.get('project_id')) or 'Sem projeto'} | "

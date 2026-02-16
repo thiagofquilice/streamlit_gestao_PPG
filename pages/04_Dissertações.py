@@ -5,6 +5,7 @@ from demo_seed import ensure_demo_db
 import streamlit as st
 
 from layout import configure_page, render_sidebar
+from navigation_utils import consume_nav_target
 from components.evaluation_section import render_evaluation_section
 
 from data import (
@@ -93,6 +94,8 @@ selected_filter_key = filter_label_to_key(status_filter)
 if selected_filter_key is not None:
     filtered_items = [item for item in items if (item.get("status") or "") == selected_filter_key]
 
+selected_target_id = consume_nav_target("dissertation")
+
 if items:
     st.subheader("Dissertações cadastradas")
     for diss in filtered_items:
@@ -106,7 +109,7 @@ if items:
         ]
 
         title_with_status = f"{diss.get('title') or '(Sem título)'} | Status: {status_label(diss.get('status'))}"
-        with st.expander(title_with_status, expanded=False):
+        with st.expander(title_with_status, expanded=(selected_target_id == diss.get("id"))):
             st.write(diss.get("summary") or "Sem resumo")
             st.caption(f"Projeto: {project_options.get(diss.get('project_id')) or 'Sem projeto'}")
             st.caption(f"Linha: {line_options.get(diss.get('line_id')) or 'Sem linha'} | Ano: {diss.get('year') or 'N/A'}")

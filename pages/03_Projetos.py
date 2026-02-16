@@ -19,6 +19,7 @@ from data import (
     list_research_lines,
 )
 from layout import configure_page, render_sidebar
+from navigation_utils import navigate_to
 from status_utils import (
     available_filter_labels,
     filter_label_to_key,
@@ -83,6 +84,19 @@ def _can_edit_project(project: Dict[str, Any]) -> bool:
     return linked_orientador or created_by_me
 
 
+
+
+def _render_entity_links(items: List[Dict[str, Any]], label_key: str, page_path: str, target_type: str, prefix: str) -> None:
+    if not items:
+        st.caption("Nenhum item vinculado.")
+        return
+    for idx, item in enumerate(items):
+        item_id = item.get("id")
+        label = item.get(label_key) or item_id or "(Sem título)"
+        if st.button(label, key=f"{prefix}-{item_id or idx}", type="tertiary"):
+            navigate_to(page_path, target_type, item_id)
+
+
 def _render_project_tabs(project: Dict[str, Any]) -> None:
     project_mestrandos = [m for m in members if m.get("role") == "mestrando" and m.get("id") in (project.get("mestrandos_ids") or [])]
     project_dissertations = list_project_dissertations(project["id"])
@@ -92,6 +106,7 @@ def _render_project_tabs(project: Dict[str, Any]) -> None:
     tabs = st.tabs(["Mestrandos", "Dissertações", "Artigos", "PTTs"])
 
     with tabs[0]:
+        _render_entity_links(project_mestrandos, "name", "pages/10_Cadastro_de_pessoal.py", "person", f"proj-mestrando-{project.get('id')}")
         if project_mestrandos:
             mestrandos_df = pd.DataFrame(
                 [
@@ -108,6 +123,7 @@ def _render_project_tabs(project: Dict[str, Any]) -> None:
             st.info("Sem mestrandos vinculados ao projeto.")
 
     with tabs[1]:
+        _render_entity_links(project_dissertations, "title", "pages/04_Dissertações.py", "dissertation", f"proj-diss-{project.get('id')}")
         if project_dissertations:
             dissertations_df = pd.DataFrame(
                 [
@@ -124,6 +140,7 @@ def _render_project_tabs(project: Dict[str, Any]) -> None:
             st.info("Sem dissertações vinculadas ao projeto.")
 
     with tabs[2]:
+        _render_entity_links(project_articles, "title", "pages/05_Artigos.py", "article", f"proj-article-{project.get('id')}")
         if project_articles:
             articles_df = pd.DataFrame(
                 [
@@ -140,6 +157,7 @@ def _render_project_tabs(project: Dict[str, Any]) -> None:
             st.info("Sem artigos vinculados ao projeto.")
 
     with tabs[3]:
+        _render_entity_links(project_ptts, "title", "pages/06_PTTs.py", "ptt", f"proj-ptt-{project.get('id')}")
         if project_ptts:
             ptts_df = pd.DataFrame(
                 [
