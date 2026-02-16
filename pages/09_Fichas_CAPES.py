@@ -27,14 +27,20 @@ if not forms:
     st.info("Nenhuma ficha de avaliação configurada para este PPG.")
     st.stop()
 
-st.write("Estas fichas são carregadas automaticamente para Artigos e PTTs.")
+st.write("Estas fichas são carregadas automaticamente para Dissertação, Artigos e PTTs.")
 
-order = ["articles", "ptts"]
+order = ["dissertations", "articles", "ptts"]
 for key in order:
     form = forms.get(key)
     if not form:
         continue
     with st.expander(form.get("name", key).strip() or key, expanded=True):
+        scale = form.get("scale", {})
+        if scale:
+            st.caption(
+                f"Métrica da escala: {scale.get('metric_name', 'Qualidade')} | "
+                + ", ".join(f"{lvl.get('label')}: {lvl.get('value')}" for lvl in scale.get("levels", []))
+            )
         if key == "ptts" and form.get("ptt_types"):
             st.caption("Tipos de PTT contemplados: " + ", ".join(form["ptt_types"]))
 

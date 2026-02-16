@@ -286,6 +286,12 @@ def get_admin_form(form_key: str) -> Dict[str, Any]:
     return get_admin_evaluation_forms().get(form_key, {})
 
 
+def upsert_admin_form(form_key: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    forms = get_db().setdefault("evaluation_forms", {})
+    forms[form_key] = payload
+    return forms[form_key]
+
+
 def _score_value(raw_value: Any, response_type: str) -> float:
     if response_type == "yes_no":
         return 5.0 if bool(raw_value) else 0.0
