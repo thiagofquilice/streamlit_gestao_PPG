@@ -10,6 +10,7 @@ from demo_store import export_db_json, import_db_json, list_people, reset_db
 PAGE_LINKS = [
     ("pages/02_PPG_Admin.py", "PPG Admin"),
     ("pages/01_Visão_Geral.py", "Visão Geral"),
+    ("pages/03_Linhas_de_Pesquisa.py", "Linhas de Pesquisa"),
     ("pages/03_Projetos.py", "Projetos"),
     ("pages/04_Dissertações.py", "Dissertações"),
     ("pages/05_Artigos.py", "Artigos"),
@@ -53,6 +54,11 @@ def render_sidebar() -> None:
     st.sidebar.write(f"PPG atual: {ppg_id}")
 
     st.sidebar.divider()
+    st.sidebar.header("Navegação")
+    for page_path, label in PAGE_LINKS:
+        st.sidebar.page_link(page_path, label=label)
+
+    st.sidebar.divider()
     if st.sidebar.button("Resetar demo", use_container_width=True):
         reset_db()
         st.rerun()
@@ -63,8 +69,3 @@ def render_sidebar() -> None:
         import_db_json(uploaded)
         st.success("Banco demo importado.")
         st.rerun()
-
-    st.sidebar.divider()
-    st.sidebar.header("Navegação")
-    for page_path, label in PAGE_LINKS:
-        st.sidebar.page_link(page_path, label=label)
