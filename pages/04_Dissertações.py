@@ -58,10 +58,10 @@ if items:
                     summary = st.text_area("Resumo", value=diss.get("summary") or "")
                     year = st.number_input("Ano", min_value=1900, max_value=2100, value=int(diss.get("year") or 2024), step=1)
                     project_id = st.selectbox(
-                        "Projeto (opcional)",
-                        [None] + list(project_options.keys()),
-                        format_func=lambda pid: project_options.get(pid, "Sem projeto") if pid else "Sem projeto",
-                        index=([None] + list(project_options.keys())).index(diss.get("project_id"))
+                        "Projeto",
+                        list(project_options.keys()),
+                        format_func=lambda pid: project_options.get(pid, "Projeto inválido"),
+                        index=(list(project_options.keys())).index(diss.get("project_id"))
                         if diss.get("project_id") in project_options
                         else 0,
                     )
@@ -92,24 +92,27 @@ if items:
                     status = status_selector("Status", diss.get("status"), key=f"status-{diss['id']}")
                     submitted = st.form_submit_button("Salvar", use_container_width=True)
                 if submitted and title:
-                    upsert_dissertation(
-                        {
-                            "id": diss["id"],
-                            "ppg_id": ppg_id,
-                            "title": title,
-                            "summary": summary,
-                            "year": int(year),
-                            "project_id": project_id,
-                            "line_id": line_id,
-                            "orientador_id": orientador_id,
-                            "mestrando_id": mestrando_id,
-                            "status": status,
-                            "artigos_ids": diss.get("artigos_ids", []),
-                            "ptts_ids": diss.get("ptts_ids", []),
-                        }
-                    )
-                    st.success("Dissertação atualizada.")
-                    st.rerun()
+                    try:
+                        upsert_dissertation(
+                            {
+                                "id": diss["id"],
+                                "ppg_id": ppg_id,
+                                "title": title,
+                                "summary": summary,
+                                "year": int(year),
+                                "project_id": project_id,
+                                "line_id": line_id,
+                                "orientador_id": orientador_id,
+                                "mestrando_id": mestrando_id,
+                                "status": status,
+                                "artigos_ids": diss.get("artigos_ids", []),
+                                "ptts_ids": diss.get("ptts_ids", []),
+                            }
+                        )
+                        st.success("Dissertação atualizada.")
+                        st.rerun()
+                    except ValueError as exc:
+                        st.error(str(exc))
 else:
     st.info("Nenhuma dissertação cadastrada para este PPG.")
 
@@ -121,9 +124,9 @@ if can_create:
         summary = st.text_area("Resumo")
         year = st.number_input("Ano", min_value=1900, max_value=2100, value=2024, step=1)
         project_id = st.selectbox(
-            "Projeto (opcional)",
-            [None] + list(project_options.keys()),
-            format_func=lambda pid: project_options.get(pid, "Sem projeto") if pid else "Sem projeto",
+            "Projeto",
+            list(project_options.keys()),
+            format_func=lambda pid: project_options.get(pid, "Projeto inválido"),
         )
         line_id = st.selectbox(
             "Linha (opcional)",
@@ -143,22 +146,25 @@ if can_create:
         status = status_selector("Status", None, key="status-new")
         submitted = st.form_submit_button("Salvar", use_container_width=True)
     if submitted and title:
-        upsert_dissertation(
-            {
-                "ppg_id": ppg_id,
-                "title": title,
-                "summary": summary,
-                "year": int(year),
-                "project_id": project_id,
-                "line_id": line_id,
-                "orientador_id": orientador_id,
-                "mestrando_id": mestrando_id,
-                "status": status,
-                "artigos_ids": [],
-                "ptts_ids": [],
-            }
-        )
-        st.success("Dissertação salva.")
-        st.rerun()
+        try:
+            upsert_dissertation(
+                {
+                    "ppg_id": ppg_id,
+                    "title": title,
+                    "summary": summary,
+                    "year": int(year),
+                    "project_id": project_id,
+                    "line_id": line_id,
+                    "orientador_id": orientador_id,
+                    "mestrando_id": mestrando_id,
+                    "status": status,
+                    "artigos_ids": [],
+                    "ptts_ids": [],
+                }
+            )
+            st.success("Dissertação salva.")
+            st.rerun()
+        except ValueError as exc:
+            st.error(str(exc))
 else:
     st.info("Seu perfil não permite cadastrar dissertações.")
