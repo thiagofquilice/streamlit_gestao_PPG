@@ -138,52 +138,78 @@ for article in filtered_articles:
 if can_create:
     st.divider()
     st.subheader("Cadastrar novo artigo")
-    with st.form("form-article"):
-        title = st.text_input("Título")
-        summary = st.text_area("Resumo")
-        year = st.number_input("Ano", min_value=1900, max_value=2100, value=2024, step=1)
-        project_id = st.selectbox(
-            "Projeto",
-            list(projects.keys()),
-            format_func=lambda pid: projects.get(pid, "Projeto inválido"),
-        )
-        line_id = st.selectbox(
-            "Linha (opcional)",
-            [None] + list(lines.keys()),
-            format_func=lambda lid: lines.get(lid, "Sem linha") if lid else "Sem linha",
-        )
-        dissertation_id = st.selectbox(
-            "Dissertação (opcional)",
-            [None] + list(disserts.keys()),
-            format_func=lambda did: disserts.get(did, "Sem vínculo") if did else "Sem vínculo",
-        )
-        status = status_selector("Status", None, key="article-status-new")
-        journal_target_rating = st.selectbox("Classificação da revista (execução/planejamento)", journal_rating_options, key="article-target-rating-new")
-        journal_published_rating = st.selectbox("Classificação da revista publicada (conclusão)", journal_rating_options, key="article-published-rating-new")
-        submitted = st.form_submit_button("Salvar", use_container_width=True)
 
-    if submitted and title:
-        if status == "concluido" and not journal_published_rating:
-            st.error("Um artigo só pode ser concluído quando publicado. Informe a classificação da revista publicada.")
-        else:
-            try:
-                upsert_article(
-                    {
-                        "ppg_id": ppg_id,
-                        "title": title,
-                        "summary": summary,
-                        "year": int(year),
-                        "project_id": project_id,
-                        "line_id": line_id,
-                        "dissertation_id": dissertation_id,
-                        "status": status,
-                        "journal_target_rating": journal_target_rating,
-                        "journal_published_rating": journal_published_rating if status == "concluido" else None,
-                    }
-                )
-                st.success("Artigo salvo.")
-                st.rerun()
-            except ValueError as exc:
-                st.error(str(exc))
+    add_new_key = "show_new_article_form"
+    if add_new_key not in st.session_state:
+        st.session_state[add_new_key] = False
+
+    if st.button("Adicionar artigo", use_container_width=True):
+        st.session_state[add_new_key] = True
+
+    if st.session_state[add_new_key]:
+        with st.form("form-article"):
+            title = st.text_input("Título")
+            summary = st.text_area("Resumo")
+            year = st.number_input("Ano", min_value=1900, max_value=2100, value=2024, step=1)
+            project_id = st.selectbox(
+                "Projeto",
+                list(projects.keys()),
+                format_func=lambda pid: projects.get(pid, "Projeto inválido"),
+            )
+            line_id = st.selectbox(
+                "Linha (opcional)",
+                [None] + list(lines.keys()),
+                format_func=lambda lid: lines.get(lid, "Sem linha") if lid else "Sem linha",
+            )
+            dissertation_id = st.selectbox(
+                "Dissertação (opcional)",
+                [None] + list(disserts.keys()),
+                format_func=lambda did: disserts.get(did, "Sem vínculo") if did else "Sem vínculo",
+            )
+            status = status_selector("Status", None, key="article-status-new")
+            journal_target_rating = st.selectbox(
+                "Classificação da revista (execução/planejamento)",
+                journal_rating_options,
+                key="article-target-rating-new",
+            )
+            journal_published_rating = st.selectbox(
+                "Classificação da revista publicada (conclusão)",
+                journal_rating_options,
+                key="article-published-rating-new",
+            )
+            save_col, cancel_col = st.columns(2)
+            with save_col:
+                submitted = st.form_submit_button("Salvar", use_container_width=True)
+            with cancel_col:
+                hide_form = st.form_submit_button("Cancelar", use_container_width=True)
+
+        if hide_form:
+            st.session_state[add_new_key] = False
+            st.rerun()
+
+        if submitted and title:
+            if status == "concluido" and not journal_published_rating:
+                st.error("Um artigo só pode ser concluído quando publicado. Informe a classificação da revista publicada.")
+            else:
+                try:
+                    upsert_article(
+                        {
+                            "ppg_id": ppg_id,
+                            "title": title,
+                            "summary": summary,
+                            "year": int(year),
+                            "project_id": project_id,
+                            "line_id": line_id,
+                            "dissertation_id": dissertation_id,
+                            "status": status,
+                            "journal_target_rating": journal_target_rating,
+                            "journal_published_rating": journal_published_rating if status == "concluido" else None,
+                        }
+                    )
+                    st.success("Artigo salvo.")
+                    st.session_state[add_new_key] = False
+                    st.rerun()
+                except ValueError as exc:
+                    st.error(str(exc))
 elif not articles:
     st.info("Seu perfil não permite cadastrar artigos.")

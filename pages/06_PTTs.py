@@ -110,44 +110,62 @@ for ptt in filtered_ptts:
 if can_create:
     st.divider()
     st.subheader("Cadastrar novo PTT")
-    with st.form("form-ptt"):
-        title = st.text_input("Título")
-        summary = st.text_area("Resumo")
-        year = st.number_input("Ano", min_value=1900, max_value=2100, value=2024, step=1)
-        project_id = st.selectbox(
-            "Projeto",
-            list(projects.keys()),
-            format_func=lambda pid: projects.get(pid, "Projeto inválido"),
-        )
-        line_id = st.selectbox(
-            "Linha (opcional)",
-            [None] + list(lines.keys()),
-            format_func=lambda lid: lines.get(lid, "Sem linha") if lid else "Sem linha",
-        )
-        dissertation_id = st.selectbox(
-            "Dissertação (opcional)",
-            [None] + list(disserts.keys()),
-            format_func=lambda did: disserts.get(did, "Sem vínculo") if did else "Sem vínculo",
-        )
-        status = status_selector("Status", None, key="ptt-status-new")
-        tipo_ptt = st.selectbox("Tipo de PTT", ptt_type_options or [""], key="ptt-type-new")
-        submitted = st.form_submit_button("Salvar", use_container_width=True)
 
-    if submitted and title:
-        upsert_ptt(
-            {
-                "ppg_id": ppg_id,
-                "title": title,
-                "summary": summary,
-                "year": int(year),
-                "project_id": project_id,
-                "line_id": line_id,
-                "dissertation_id": dissertation_id,
-                "status": status,
-                "tipo_ptt": tipo_ptt,
-            }
-        )
-        st.success("PTT salvo.")
-        st.rerun()
+    add_new_key = "show_new_ptt_form"
+    if add_new_key not in st.session_state:
+        st.session_state[add_new_key] = False
+
+    if st.button("Adicionar PTT", use_container_width=True):
+        st.session_state[add_new_key] = True
+
+    if st.session_state[add_new_key]:
+        with st.form("form-ptt"):
+            title = st.text_input("Título")
+            summary = st.text_area("Resumo")
+            year = st.number_input("Ano", min_value=1900, max_value=2100, value=2024, step=1)
+            project_id = st.selectbox(
+                "Projeto",
+                list(projects.keys()),
+                format_func=lambda pid: projects.get(pid, "Projeto inválido"),
+            )
+            line_id = st.selectbox(
+                "Linha (opcional)",
+                [None] + list(lines.keys()),
+                format_func=lambda lid: lines.get(lid, "Sem linha") if lid else "Sem linha",
+            )
+            dissertation_id = st.selectbox(
+                "Dissertação (opcional)",
+                [None] + list(disserts.keys()),
+                format_func=lambda did: disserts.get(did, "Sem vínculo") if did else "Sem vínculo",
+            )
+            status = status_selector("Status", None, key="ptt-status-new")
+            tipo_ptt = st.selectbox("Tipo de PTT", ptt_type_options or [""], key="ptt-type-new")
+            save_col, cancel_col = st.columns(2)
+            with save_col:
+                submitted = st.form_submit_button("Salvar", use_container_width=True)
+            with cancel_col:
+                hide_form = st.form_submit_button("Cancelar", use_container_width=True)
+
+        if hide_form:
+            st.session_state[add_new_key] = False
+            st.rerun()
+
+        if submitted and title:
+            upsert_ptt(
+                {
+                    "ppg_id": ppg_id,
+                    "title": title,
+                    "summary": summary,
+                    "year": int(year),
+                    "project_id": project_id,
+                    "line_id": line_id,
+                    "dissertation_id": dissertation_id,
+                    "status": status,
+                    "tipo_ptt": tipo_ptt,
+                }
+            )
+            st.success("PTT salvo.")
+            st.session_state[add_new_key] = False
+            st.rerun()
 elif not ptts:
     st.info("Seu perfil não permite cadastrar PTTs.")
