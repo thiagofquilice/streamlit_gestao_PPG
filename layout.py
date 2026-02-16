@@ -15,7 +15,7 @@ PAGE_LINKS = [
     ("pages/04_Dissertações.py", "Dissertações"),
     ("pages/05_Artigos.py", "Artigos"),
     ("pages/06_PTTs.py", "PTTs"),
-    ("pages/07_Avaliações.py", "Avaliações"),
+    ("pages/07_Avaliações.py", "Cadastro de Classificações"),
 ]
 
 

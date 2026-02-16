@@ -234,6 +234,14 @@ def upsert_article(payload: Dict[str, Any]) -> Dict[str, Any]:
     if is_new:
         payload["id"] = next_id("art")
     payload["project_id"] = _ensure_project_exists(payload.get("project_id"), field_label="projeto")
+
+    status = str(payload.get("status") or "").strip().lower()
+    published_rating = str(payload.get("journal_published_rating") or "").strip()
+    if status == "concluido" and not published_rating:
+        raise ValueError("Um artigo só pode ser concluído quando publicado e com classificação da revista informada.")
+    if status != "concluido":
+        payload["journal_published_rating"] = None
+
     article = _upsert("articles", payload)
     _maybe_attach_to_dissertation(article)
     return article
