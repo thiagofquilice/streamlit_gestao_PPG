@@ -92,6 +92,9 @@ def _project_tabs(
 ) -> None:
     article_to_dissertations: Dict[str, List[str]] = defaultdict(list)
     dissertation_to_articles: Dict[str, List[str]] = defaultdict(list)
+    dissertation_to_article_statuses: Dict[str, List[str]] = defaultdict(list)
+    dissertation_to_ptts: Dict[str, List[str]] = defaultdict(list)
+    dissertation_to_ptt_statuses: Dict[str, List[str]] = defaultdict(list)
 
     diss_title_by_id = {d.get("id"): d.get("title") or d.get("id") for d in project_dissertations}
     article_title_by_id = {a.get("id"): a.get("title") or a.get("id") for a in project_articles}
@@ -101,6 +104,18 @@ def _project_tabs(
         dissertation_label = diss_title_by_id.get(dissertation_id, dissertation_id)
         article_to_dissertations[article_id].append(dissertation_label)
         dissertation_to_articles[dissertation_id].append(article_label)
+
+    article_status_by_id = {a.get("id"): a.get("status") or "planejado" for a in project_articles}
+    for article_id, dissertation_id in link_pairs:
+        if article_id and dissertation_id:
+            dissertation_to_article_statuses[dissertation_id].append(article_status_by_id.get(article_id, "planejado"))
+
+    for ptt in project_ptts:
+        dissertation_id = ptt.get("dissertation_id")
+        if not dissertation_id:
+            continue
+        dissertation_to_ptts[dissertation_id].append(ptt.get("title") or ptt.get("id") or "-")
+        dissertation_to_ptt_statuses[dissertation_id].append(ptt.get("status") or "planejado")
 
     shared_articles = {aid for aid, diss_list in article_to_dissertations.items() if len(set(diss_list)) > 1}
 
@@ -135,6 +150,9 @@ def _project_tabs(
                         "Ano": diss.get("year", "-"),
                         "Status": diss.get("status", "-"),
                         "Artigos associados": ", ".join(artigos) if artigos else "-",
+                        "Status dos artigos": ", ".join(dissertation_to_article_statuses.get(diss_id, [])) or "-",
+                        "PTTs associados": ", ".join(dissertation_to_ptts.get(diss_id, [])) or "-",
+                        "Status dos PTTs": ", ".join(dissertation_to_ptt_statuses.get(diss_id, [])) or "-",
                     }
                 )
             st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
