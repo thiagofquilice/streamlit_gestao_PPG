@@ -14,10 +14,12 @@ from data import (
     list_projects,
     list_ptts,
     list_research_lines,
+    get_admin_form,
     list_target_evaluations,
     upsert_ptt,
 )
 
+from rbac import can
 from status_utils import (
     available_filter_labels,
     filter_label_to_key,
@@ -49,6 +51,8 @@ if not ppg_id:
     st.stop()
 
 can_create_eval = role in ("coordenador", "orientador")
+can_create = can("criar")
+can_edit = can("editar")
 
 projects = {p["id"]: p.get("name") for p in list_projects(ppg_id)}
 lines = {line["id"]: line.get("name") for line in list_research_lines(ppg_id)}
@@ -56,9 +60,11 @@ disserts = {d["id"]: d.get("title") for d in list_dissertations(ppg_id)}
 people = {m["user_id"]: m.get("display_name") or m.get("label") or m["user_id"] for m in list_ppg_members(ppg_id)}
 
 ptts = list_ptts(ppg_id)
+form_ptts = get_admin_form("ptts")
+ptt_type_options = form_ptts.get("ptt_types") or []
+
 if not ptts:
     st.info("Nenhum PTT cadastrado para este PPG.")
-    st.stop()
 
 status_filter_options = available_filter_labels(ptt.get("status") for ptt in ptts if ptt.get("status"))
 status_filter = st.selectbox("Filtrar por status", ["Todos"] + status_filter_options, index=0)
@@ -79,14 +85,17 @@ for ptt in filtered_ptts:
             f"Status: {status_label(ptt.get('status'))} | Tipo: {ptt.get('tipo_ptt') or 'N/A'} | Dissertação: {disserts.get(ptt.get('dissertation_id')) or 'Sem vínculo'}"
         )
 
-        with st.form(f"ptt-status-{ptt['id']}"):
-            status = status_selector("Status", ptt.get("status"), key=f"ptt-status-control-{ptt['id']}")
-            submitted_status = st.form_submit_button("Atualizar status", use_container_width=True)
+        if can_edit:
+            with st.form(f"ptt-status-{ptt['id']}"):
+                status = status_selector("Status", ptt.get("status"), key=f"ptt-status-control-{ptt['id']}")
+                tipo_index = ptt_type_options.index(ptt.get("tipo_ptt")) if ptt.get("tipo_ptt") in ptt_type_options else 0
+                tipo_ptt = st.selectbox("Tipo de PTT", ptt_type_options or [""], index=tipo_index, key=f"ptt-type-{ptt['id']}")
+                submitted_status = st.form_submit_button("Salvar dados", use_container_width=True)
 
-        if submitted_status:
-            upsert_ptt({**ptt, "status": status})
-            st.success("Status do PTT atualizado.")
-            st.rerun()
+            if submitted_status:
+                upsert_ptt({**ptt, "status": status, "tipo_ptt": tipo_ptt})
+                st.success("Dados do PTT atualizados.")
+                st.rerun()
 
         count, avg, last_score, last_date = evaluation_stats("ptt", ptt["id"])
         st.markdown(
@@ -110,3 +119,49 @@ for ptt in filtered_ptts:
             st.page_link("pages/07_Avaliações.py", label="Criar avaliação", icon="✏️")
         else:
             st.info("Perfil atual permite apenas visualizar avaliações.")
+
+
+if can_create:
+    st.divider()
+    st.subheader("Cadastrar novo PTT")
+    with st.form("form-ptt"):
+        title = st.text_input("Título")
+        summary = st.text_area("Resumo")
+        year = st.number_input("Ano", min_value=1900, max_value=2100, value=2024, step=1)
+        project_id = st.selectbox(
+            "Projeto",
+            list(projects.keys()),
+            format_func=lambda pid: projects.get(pid, "Projeto inválido"),
+        )
+        line_id = st.selectbox(
+            "Linha (opcional)",
+            [None] + list(lines.keys()),
+            format_func=lambda lid: lines.get(lid, "Sem linha") if lid else "Sem linha",
+        )
+        dissertation_id = st.selectbox(
+            "Dissertação (opcional)",
+            [None] + list(disserts.keys()),
+            format_func=lambda did: disserts.get(did, "Sem vínculo") if did else "Sem vínculo",
+        )
+        status = status_selector("Status", None, key="ptt-status-new")
+        tipo_ptt = st.selectbox("Tipo de PTT", ptt_type_options or [""], key="ptt-type-new")
+        submitted = st.form_submit_button("Salvar", use_container_width=True)
+
+    if submitted and title:
+        upsert_ptt(
+            {
+                "ppg_id": ppg_id,
+                "title": title,
+                "summary": summary,
+                "year": int(year),
+                "project_id": project_id,
+                "line_id": line_id,
+                "dissertation_id": dissertation_id,
+                "status": status,
+                "tipo_ptt": tipo_ptt,
+            }
+        )
+        st.success("PTT salvo.")
+        st.rerun()
+elif not ptts:
+    st.info("Seu perfil não permite cadastrar PTTs.")

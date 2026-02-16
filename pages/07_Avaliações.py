@@ -15,8 +15,8 @@ ensure_demo_db()
 configure_page()
 render_sidebar()
 
-st.title("Avaliações")
-st.caption("Crie e ajuste os modelos de avaliação para Dissertação, Artigo e PTT.")
+st.title("Cadastro de Classificações")
+st.caption("Cadastre modelos de avaliação, tipos de PTT e classificações de revistas para uso nos cadastros.")
 
 ppg_id = current_ppg()
 role = current_profile()
@@ -70,6 +70,100 @@ def _normalize_form(form_key: str, kind: str, title: str) -> Dict[str, Any]:
     if "metric_name" not in form["scale"]:
         form["scale"]["metric_name"] = "Qualidade"
     return form
+
+
+def _normalize_values(values: List[str]) -> List[str]:
+    normalized: List[str] = []
+    seen = set()
+    for value in values:
+        label = str(value or "").strip()
+        if not label:
+            continue
+        lowered = label.lower()
+        if lowered in seen:
+            continue
+        normalized.append(label)
+        seen.add(lowered)
+    return normalized
+
+
+def _default_journal_ratings() -> List[str]:
+    return ["A1", "A2", "A3", "A4", "B1", "B2", "B3", "B4", "C"]
+
+
+def _render_classification_editor() -> None:
+    article_form = forms.get("articles") or _default_form("articles", "artigo", "Modelo de avaliação — Artigo")
+    ptt_form = forms.get("ptts") or _default_form("ptts", "ptt", "Modelo de avaliação — PTT")
+
+    with st.expander("Classificações auxiliares", expanded=True):
+        st.markdown("**Tipos de PTT disponíveis no cadastro**")
+        ptt_types = ptt_form.get("ptt_types") or []
+        ptt_type_count = st.number_input(
+            "Quantidade de tipos de PTT",
+            min_value=1,
+            max_value=30,
+            value=len(ptt_types) if ptt_types else 1,
+            step=1,
+            key="ptt_type_count",
+        )
+        ptt_type_rows: List[str] = []
+        for idx in range(int(ptt_type_count)):
+            current_value = ptt_types[idx] if idx < len(ptt_types) else ""
+            typed = st.text_input(
+                f"Tipo de PTT {idx + 1}",
+                value=str(current_value),
+                key=f"ptt_type_{idx}",
+            )
+            ptt_type_rows.append(typed)
+
+        st.markdown("**Classificações de revista disponíveis no cadastro de artigos**")
+        journal_ratings = article_form.get("journal_ratings") or _default_journal_ratings()
+        ratings_count = st.number_input(
+            "Quantidade de classificações de revista",
+            min_value=1,
+            max_value=40,
+            value=len(journal_ratings) if journal_ratings else len(_default_journal_ratings()),
+            step=1,
+            key="journal_ratings_count",
+        )
+        rating_rows: List[str] = []
+        for idx in range(int(ratings_count)):
+            current_value = journal_ratings[idx] if idx < len(journal_ratings) else ""
+            typed = st.text_input(
+                f"Classificação da revista {idx + 1}",
+                value=str(current_value),
+                key=f"journal_rating_{idx}",
+            )
+            rating_rows.append(typed)
+
+        if st.button("Salvar classificações", type="primary", key="save_classifications", disabled=role != "coordenador"):
+            normalized_ptt_types = _normalize_values(ptt_type_rows)
+            normalized_ratings = _normalize_values(rating_rows)
+
+            article_payload = {
+                **article_form,
+                "id": article_form.get("id") or "f_articles",
+                "name": article_form.get("name") or "Modelo de avaliação — Artigo",
+                "kind": article_form.get("kind") or "artigo",
+                "scale": article_form.get("scale") or _default_scale(),
+                "criteria": article_form.get("criteria") or _default_form("articles", "artigo", "Modelo de avaliação — Artigo")["criteria"],
+                "journal_ratings": normalized_ratings or _default_journal_ratings(),
+            }
+
+            ptt_payload = {
+                **ptt_form,
+                "id": ptt_form.get("id") or "f_ptts",
+                "name": ptt_form.get("name") or "Modelo de avaliação — PTT",
+                "kind": ptt_form.get("kind") or "ptt",
+                "scale": ptt_form.get("scale") or _default_scale(),
+                "criteria": ptt_form.get("criteria") or _default_form("ptts", "ptt", "Modelo de avaliação — PTT")["criteria"],
+                "ptt_types": normalized_ptt_types,
+            }
+
+            upsert_admin_form("articles", article_payload)
+            upsert_admin_form("ptts", ptt_payload)
+            st.success("Classificações salvas com sucesso.")
+            st.rerun()
 
 
 def _render_model_editor(form_key: str, label: str, kind: str) -> None:
@@ -172,6 +266,8 @@ def _render_model_editor(form_key: str, label: str, kind: str) -> None:
             }
             if form_key == "ptts":
                 payload["ptt_types"] = form.get("ptt_types", [])
+            if form_key == "articles":
+                payload["journal_ratings"] = form.get("journal_ratings", _default_journal_ratings())
             upsert_admin_form(form_key, payload)
             st.success(f"Modelo {label} salvo com sucesso.")
             st.rerun()
@@ -181,6 +277,7 @@ def _render_model_editor(form_key: str, label: str, kind: str) -> None:
         )
 
 
+_render_classification_editor()
 _render_model_editor("dissertations", "Dissertação", "dissertacao")
 _render_model_editor("articles", "Artigo", "artigo")
 _render_model_editor("ptts", "PTT", "ptt")
