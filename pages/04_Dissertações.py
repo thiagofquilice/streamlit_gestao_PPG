@@ -17,21 +17,29 @@ from data import (
 )
 from demo_context import current_ppg, current_profile
 from rbac import can
+from status_utils import (
+    available_filter_labels,
+    filter_label_to_key,
+    selector_default_label,
+    selector_label_to_key,
+    selector_labels,
+    status_label,
+)
 
 ensure_demo_db()
 
 configure_page()
 render_sidebar()
 
-STATUS_OPTIONS = ["planejado", "em_execucao", "concluido"]
-
-
 def status_selector(label: str, value: str | None, key: str) -> str:
-    default_value = value if value in STATUS_OPTIONS else STATUS_OPTIONS[0]
+    options = selector_labels()
+    default_value = selector_default_label(value)
     segmented = getattr(st, "segmented_control", None)
     if segmented:
-        return segmented(label, STATUS_OPTIONS, default=default_value, key=key)
-    return st.radio(label, STATUS_OPTIONS, horizontal=True, index=STATUS_OPTIONS.index(default_value), key=key)
+        selected = segmented(label, options, default=default_value, key=key)
+    else:
+        selected = st.radio(label, options, horizontal=True, index=options.index(default_value), key=key)
+    return selector_label_to_key(selected)
 
 st.title("Dissertações")
 st.info(
@@ -60,11 +68,12 @@ items = list_dissertations(ppg_id)
 all_articles = list_articles(ppg_id)
 all_ptts = list_ptts(ppg_id)
 
-status_filter_options = sorted({item.get("status") for item in items if item.get("status")})
+status_filter_options = available_filter_labels(item.get("status") for item in items if item.get("status"))
 status_filter = st.selectbox("Filtrar por status", ["Todos"] + status_filter_options, index=0)
 filtered_items = items
-if status_filter != "Todos":
-    filtered_items = [item for item in items if (item.get("status") or "") == status_filter]
+selected_filter_key = filter_label_to_key(status_filter)
+if selected_filter_key is not None:
+    filtered_items = [item for item in items if (item.get("status") or "") == selected_filter_key]
 
 if items:
     st.subheader("Dissertações cadastradas")
@@ -78,12 +87,12 @@ if items:
             ptt for ptt in all_ptts if ptt.get("dissertation_id") == diss.get("id") or ptt.get("id") in diss.get("ptts_ids", [])
         ]
 
-        title_with_status = f"{diss.get('title') or '(Sem título)'} | Status: {diss.get('status') or 'planejado'}"
+        title_with_status = f"{diss.get('title') or '(Sem título)'} | Status: {status_label(diss.get('status'))}"
         with st.expander(title_with_status, expanded=False):
             st.write(diss.get("summary") or "Sem resumo")
             st.caption(f"Projeto: {project_options.get(diss.get('project_id')) or 'Sem projeto'}")
             st.caption(f"Linha: {line_options.get(diss.get('line_id')) or 'Sem linha'} | Ano: {diss.get('year') or 'N/A'}")
-            st.caption(f"Status: {diss.get('status') or 'planejado'}")
+            st.caption(f"Status: {status_label(diss.get('status'))}")
             st.write("Orientador:", orientadores.get(diss.get("orientador_id")) or "Não definido")
             st.write("Mestrando:", mestrandos.get(diss.get("mestrando_id")) or "Não definido")
             st.write("Artigos associados:")

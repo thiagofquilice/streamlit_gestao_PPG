@@ -18,6 +18,13 @@ from data import (
     list_research_lines,
 )
 from layout import configure_page, render_sidebar
+from status_utils import (
+    available_filter_labels,
+    filter_label_to_key,
+    selector_label_to_key,
+    selector_labels,
+    status_label,
+)
 
 ensure_demo_db()
 
@@ -46,15 +53,16 @@ projects = list_projects(ppg_id)
 if not projects:
     st.info("Nenhum projeto cadastrado para este PPG.")
 
-project_statuses = sorted({p.get("status") for p in projects if p.get("status")})
+project_statuses = available_filter_labels(p.get("status") for p in projects if p.get("status"))
 project_status_filter = st.selectbox(
     "Filtrar por status",
     options=["Todos"] + project_statuses,
     index=0,
 )
 filtered_projects = projects
-if project_status_filter != "Todos":
-    filtered_projects = [p for p in projects if (p.get("status") or "") == project_status_filter]
+selected_filter_key = filter_label_to_key(project_status_filter)
+if selected_filter_key is not None:
+    filtered_projects = [p for p in projects if (p.get("status") or "") == selected_filter_key]
 
 st.caption(
     "Visualização no DEMO. Cada projeto mostra vínculos com orientadores, mestrandos, dissertações, artigos e PTTs."
@@ -92,7 +100,7 @@ def _render_project_tabs(project: Dict[str, Any]) -> None:
                     {
                         "Título": d.get("title"),
                         "Ano": d.get("year", "-"),
-                        "Status": d.get("status", "-"),
+                        "Status": status_label(d.get("status")),
                     }
                     for d in project_dissertations
                 ]
@@ -108,7 +116,7 @@ def _render_project_tabs(project: Dict[str, Any]) -> None:
                     {
                         "Título": a.get("title"),
                         "Ano": a.get("year", "-"),
-                        "Status": a.get("status", "-"),
+                        "Status": status_label(a.get("status")),
                     }
                     for a in project_articles
                 ]
@@ -125,7 +133,7 @@ def _render_project_tabs(project: Dict[str, Any]) -> None:
                         "Título": p.get("title"),
                         "Tipo": p.get("tipo_ptt") or "-",
                         "Ano": p.get("year", "-"),
-                        "Status": p.get("status", "-"),
+                        "Status": status_label(p.get("status")),
                     }
                     for p in project_ptts
                 ]
@@ -145,7 +153,7 @@ def _render_project_card(project: Dict[str, Any]) -> None:
     title = project.get("name") or "Projeto sem título"
     period = f"{project.get('start_date', '-')} → {project.get('end_date', '-')}"
     header = (
-        f"{title} | Status: {project.get('status', '-')} | Período: {period} | "
+        f"{title} | Status: {status_label(project.get('status'))} | Período: {period} | "
         f"Mestrandos: {len(project_mestrandos)} | Dissertações: {len(project_dissertations)} | "
         f"Artigos: {len({a.get('id') for a in project_articles})} | PTTs: {len(project_ptts)}"
     )
@@ -184,7 +192,8 @@ if role in ("coordenador", "orientador"):
         with st.form("add_project_form", clear_on_submit=True):
             name = st.text_input("Nome do Projeto")
             description = st.text_area("Descrição")
-            status = st.selectbox("Status", ["planejado", "andamento", "concluido"])
+            status_display = st.selectbox("Status", selector_labels(), index=0)
+            status = selector_label_to_key(status_display)
             line_options = {"Sem linha": None}
             for line in lines:
                 label = line.get("name") or line.get("id") or "Linha sem nome"
