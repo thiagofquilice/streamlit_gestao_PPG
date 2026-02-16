@@ -53,14 +53,40 @@ can_create_eval = role in ("coordenador", "orientador")
 can_create = can("criar")
 can_edit = can("editar")
 
-projects = {p["id"]: p.get("name") for p in list_projects(ppg_id)}
+project_rows = list_projects(ppg_id)
+projects = {p["id"]: p.get("name") for p in project_rows}
+projects_by_id = {p["id"]: p for p in project_rows}
 lines = {line["id"]: line.get("name") for line in list_research_lines(ppg_id)}
-disserts = {d["id"]: d.get("title") for d in list_dissertations(ppg_id)}
+dissertation_rows = list_dissertations(ppg_id)
+disserts = {d["id"]: d.get("title") for d in dissertation_rows}
+dissertations_by_id = {d["id"]: d for d in dissertation_rows}
 people = {m["user_id"]: m.get("display_name") or m.get("label") or m["user_id"] for m in list_ppg_members(ppg_id)}
 
 ptts = list_ptts(ppg_id)
 form_ptts = get_admin_form("ptts")
 ptt_type_options = form_ptts.get("ptt_types") or []
+
+current_person_id = current_person()
+
+
+def _can_edit_ptt(ptt: dict) -> bool:
+    if role == "coordenador":
+        return True
+    if role != "orientador" or not current_person_id:
+        return False
+    if ptt.get("created_by") == current_person_id:
+        return True
+    project = projects_by_id.get(ptt.get("project_id")) or {}
+    if current_person_id in (project.get("orientadores_ids") or []):
+        return True
+    dissertation = dissertations_by_id.get(ptt.get("dissertation_id")) or {}
+    return dissertation.get("orientador_id") == current_person_id
+
+
+def _mestrando_own_dissertations() -> list[dict]:
+    if role != "mestrando" or not current_person_id:
+        return []
+    return [d for d in dissertation_rows if d.get("mestrando_id") == current_person_id]
 
 if not ptts:
     st.info("Nenhum PTT cadastrado para este PPG.")
@@ -84,7 +110,7 @@ for ptt in filtered_ptts:
             f"Status: {status_label(ptt.get('status'))} | Tipo: {ptt.get('tipo_ptt') or 'N/A'} | Dissertação: {disserts.get(ptt.get('dissertation_id')) or 'Sem vínculo'}"
         )
 
-        if can_edit:
+        if can_edit and _can_edit_ptt(ptt):
             with st.form(f"ptt-status-{ptt['id']}"):
                 status = status_selector("Status", ptt.get("status"), key=f"ptt-status-control-{ptt['id']}")
                 tipo_index = ptt_type_options.index(ptt.get("tipo_ptt")) if ptt.get("tipo_ptt") in ptt_type_options else 0
@@ -119,30 +145,45 @@ if can_create:
         st.session_state[add_new_key] = True
 
     if st.session_state[add_new_key]:
+        own_dissertations = _mestrando_own_dissertations()
+        mestrando_without_dissertation = role == "mestrando" and not own_dissertations
         with st.form("form-ptt"):
             title = st.text_input("Título")
             summary = st.text_area("Resumo")
             year = st.number_input("Ano", min_value=1900, max_value=2100, value=2024, step=1)
-            project_id = st.selectbox(
-                "Projeto",
-                list(projects.keys()),
-                format_func=lambda pid: projects.get(pid, "Projeto inválido"),
-            )
-            line_id = st.selectbox(
-                "Linha (opcional)",
-                [None] + list(lines.keys()),
-                format_func=lambda lid: lines.get(lid, "Sem linha") if lid else "Sem linha",
-            )
-            dissertation_id = st.selectbox(
-                "Dissertação (opcional)",
-                [None] + list(disserts.keys()),
-                format_func=lambda did: disserts.get(did, "Sem vínculo") if did else "Sem vínculo",
-            )
+            if role == "mestrando":
+                dissertation_id = st.selectbox(
+                    "Dissertação (obrigatória)",
+                    [d.get("id") for d in own_dissertations],
+                    format_func=lambda did: disserts.get(did, "Sem vínculo"),
+                    disabled=mestrando_without_dissertation,
+                ) if own_dissertations else None
+                selected_dissertation = dissertations_by_id.get(dissertation_id) if dissertation_id else {}
+                project_id = selected_dissertation.get("project_id")
+                line_id = selected_dissertation.get("line_id")
+                st.caption(f"Projeto vinculado: {projects.get(project_id) or 'N/A'}")
+                st.caption(f"Linha vinculada: {lines.get(line_id) or 'Sem linha'}")
+            else:
+                project_id = st.selectbox(
+                    "Projeto",
+                    list(projects.keys()),
+                    format_func=lambda pid: projects.get(pid, "Projeto inválido"),
+                )
+                line_id = st.selectbox(
+                    "Linha (opcional)",
+                    [None] + list(lines.keys()),
+                    format_func=lambda lid: lines.get(lid, "Sem linha") if lid else "Sem linha",
+                )
+                dissertation_id = st.selectbox(
+                    "Dissertação (opcional)",
+                    [None] + list(disserts.keys()),
+                    format_func=lambda did: disserts.get(did, "Sem vínculo") if did else "Sem vínculo",
+                )
             status = status_selector("Status", None, key="ptt-status-new")
             tipo_ptt = st.selectbox("Tipo de PTT", ptt_type_options or [""], key="ptt-type-new")
             save_col, cancel_col = st.columns(2)
             with save_col:
-                submitted = st.form_submit_button("Salvar", use_container_width=True)
+                submitted = st.form_submit_button("Salvar", use_container_width=True, disabled=mestrando_without_dissertation)
             with cancel_col:
                 hide_form = st.form_submit_button("Cancelar", use_container_width=True)
 
@@ -151,21 +192,25 @@ if can_create:
             st.rerun()
 
         if submitted and title:
-            upsert_ptt(
-                {
-                    "ppg_id": ppg_id,
-                    "title": title,
-                    "summary": summary,
-                    "year": int(year),
-                    "project_id": project_id,
-                    "line_id": line_id,
-                    "dissertation_id": dissertation_id,
-                    "status": status,
-                    "tipo_ptt": tipo_ptt,
-                }
-            )
-            st.success("PTT salvo.")
-            st.session_state[add_new_key] = False
-            st.rerun()
+            if role == "mestrando" and not dissertation_id:
+                st.error("Você só pode cadastrar PTT vinculado à sua dissertação.")
+            else:
+                upsert_ptt(
+                    {
+                        "ppg_id": ppg_id,
+                        "title": title,
+                        "summary": summary,
+                        "year": int(year),
+                        "project_id": project_id,
+                        "line_id": line_id,
+                        "dissertation_id": dissertation_id,
+                        "status": status,
+                        "tipo_ptt": tipo_ptt,
+                        "created_by": current_person_id,
+                    }
+                )
+                st.success("PTT salvo.")
+                st.session_state[add_new_key] = False
+                st.rerun()
 elif not ptts:
     st.info("Seu perfil não permite cadastrar PTTs.")

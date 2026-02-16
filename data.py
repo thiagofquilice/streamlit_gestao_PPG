@@ -118,7 +118,7 @@ def upsert_person(payload: Dict[str, Any]) -> Dict[str, Any]:
 
 # Projects
 
-def create_project(ppg_id: str, name: str, description: Optional[str], line_id: Optional[str], status: str) -> Dict[str, Any]:
+def create_project(ppg_id: str, name: str, description: Optional[str], line_id: Optional[str], status: str, created_by: Optional[str] = None) -> Dict[str, Any]:
     validated_line_id = _ensure_line_exists(line_id) if line_id else None
     return _upsert(
         "projects",
@@ -131,6 +131,7 @@ def create_project(ppg_id: str, name: str, description: Optional[str], line_id: 
             "status": status,
             "orientadores_ids": [],
             "mestrandos_ids": [],
+            "created_by": created_by,
         },
     )
 
