@@ -4,11 +4,16 @@ from __future__ import annotations
 from demo_seed import ensure_demo_db
 import streamlit as st
 
+from layout import configure_page, render_sidebar
+
 from demo_context import current_ppg, current_profile
 from data import list_ppgs, update_ppg
 from rbac import can
 
 ensure_demo_db()
+
+configure_page()
+render_sidebar()
 
 st.title("Administração do PPG")
 ppg_id = current_ppg()

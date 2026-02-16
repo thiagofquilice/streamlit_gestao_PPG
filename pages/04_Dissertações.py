@@ -4,11 +4,16 @@ from __future__ import annotations
 from demo_seed import ensure_demo_db
 import streamlit as st
 
+from layout import configure_page, render_sidebar
+
 from data import list_dissertations, list_ppg_members, list_projects, list_research_lines, upsert_dissertation
 from demo_context import current_ppg, current_profile
 from rbac import can
 
 ensure_demo_db()
+
+configure_page()
+render_sidebar()
 
 STATUS_OPTIONS = ["planejado", "em_execucao", "concluido"]
 

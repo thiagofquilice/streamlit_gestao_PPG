@@ -5,6 +5,8 @@ from typing import Dict
 from demo_seed import ensure_demo_db
 import streamlit as st
 
+from layout import configure_page, render_sidebar
+
 from demo_context import current_person, current_ppg, current_profile
 from data import (
     add_evaluation_record,
@@ -18,6 +20,9 @@ from data import (
 )
 
 ensure_demo_db()
+
+configure_page()
+render_sidebar()
 
 st.title("Avaliações")
 ppg_id = current_ppg()

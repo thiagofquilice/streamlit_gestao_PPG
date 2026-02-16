@@ -4,7 +4,12 @@ from __future__ import annotations
 from demo_seed import ensure_demo_db
 import streamlit as st
 
+from layout import configure_page, render_sidebar
+
 ensure_demo_db()
+
+configure_page()
+render_sidebar()
 
 st.title("Relatórios")
 ppg_id = st.session_state.get("ppg_id")
