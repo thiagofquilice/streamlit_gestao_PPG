@@ -5,10 +5,15 @@ from demo_seed import ensure_demo_db
 import pandas as pd
 import streamlit as st
 
+from layout import configure_page, render_sidebar
+
 from data import get_admin_evaluation_forms
 from demo_context import current_ppg, current_profile
 
 ensure_demo_db()
+
+configure_page()
+render_sidebar()
 
 st.title("Fichas CAPES / Critérios Administração")
 ppg_id = current_ppg()
