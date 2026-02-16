@@ -10,6 +10,7 @@ import streamlit as st
 from demo_context import current_ppg
 from demo_seed import ensure_demo_db
 from demo_store import get_db
+from data import add_research_line
 from layout import configure_page, render_sidebar
 
 ensure_demo_db()
@@ -18,6 +19,9 @@ configure_page("Linhas de Pesquisa")
 render_sidebar()
 
 st.title("Linhas de Pesquisa")
+
+if "show_add_line_form_linhas" not in st.session_state:
+    st.session_state.show_add_line_form_linhas = False
 
 
 @st.cache_data(show_spinner=False)
@@ -402,3 +406,23 @@ for line in lines:
                     link_pairs,
                     people_map,
                 )
+
+st.divider()
+if st.button("Adicionar Linha de Pesquisa", use_container_width=True):
+    st.session_state.show_add_line_form_linhas = not st.session_state.show_add_line_form_linhas
+
+if st.session_state.show_add_line_form_linhas:
+    with st.form("add_line_form_linhas", clear_on_submit=True):
+        line_name = st.text_input("Nome da Linha de Pesquisa")
+        line_description = st.text_area("Descrição")
+        submit_line = st.form_submit_button("Salvar Linha")
+
+    if submit_line:
+        if not line_name.strip():
+            st.warning("Informe o nome da linha de pesquisa.")
+        else:
+            add_research_line(ppg_id, line_name.strip(), line_description.strip())
+            _load_ppg_snapshot.clear()
+            st.success("Linha de pesquisa adicionada com sucesso.")
+            st.session_state.show_add_line_form_linhas = False
+            st.rerun()
