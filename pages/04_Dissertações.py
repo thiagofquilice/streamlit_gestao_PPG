@@ -5,6 +5,7 @@ from demo_seed import ensure_demo_db
 import streamlit as st
 
 from layout import configure_page, render_sidebar
+from components.evaluation_section import render_evaluation_section
 
 from data import (
     list_articles,
@@ -16,6 +17,7 @@ from data import (
     upsert_dissertation,
 )
 from demo_context import current_ppg, current_profile
+from demo_context import current_person
 from rbac import can
 from status_utils import (
     available_filter_labels,
@@ -63,6 +65,7 @@ line_options = {line["id"]: line.get("name") for line in lines}
 members = list_ppg_members(ppg_id)
 orientadores = {m["user_id"]: m.get("display_name") or m["user_id"] for m in members if m.get("role") == "orientador"}
 mestrandos = {m["user_id"]: m.get("display_name") or m["user_id"] for m in members if m.get("role") == "mestrando"}
+people = {m["user_id"]: m.get("display_name") or m.get("label") or m["user_id"] for m in members}
 
 items = list_dissertations(ppg_id)
 all_articles = list_articles(ppg_id)
@@ -107,6 +110,16 @@ if items:
                     st.markdown(f"- {ptt.get('title') or '(Sem título)'}")
             else:
                 st.caption("Nenhum PTT associado.")
+
+            render_evaluation_section(
+                ppg_id=ppg_id,
+                target_type="dissertation",
+                target_id=diss["id"],
+                form_key="dissertations",
+                can_manage=role in ("coordenador", "orientador"),
+                people=people,
+                evaluator_id=current_person(),
+            )
 
             if can_edit:
                 with st.form(f"edit-diss-{diss['id']}"):

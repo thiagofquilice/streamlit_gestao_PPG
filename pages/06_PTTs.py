@@ -5,17 +5,16 @@ from demo_seed import ensure_demo_db
 import streamlit as st
 
 from layout import configure_page, render_sidebar
+from components.evaluation_section import render_evaluation_section
 
-from demo_context import current_ppg, current_profile
+from demo_context import current_ppg, current_profile, current_person
 from data import (
-    evaluation_stats,
     list_dissertations,
     list_ppg_members,
     list_projects,
     list_ptts,
     list_research_lines,
     get_admin_form,
-    list_target_evaluations,
     upsert_ptt,
 )
 
@@ -97,28 +96,15 @@ for ptt in filtered_ptts:
                 st.success("Dados do PTT atualizados.")
                 st.rerun()
 
-        count, avg, last_score, last_date = evaluation_stats("ptt", ptt["id"])
-        st.markdown(
-            f"**Avaliações vinculadas:** {count}" + (f" | média: {avg}" if avg is not None else "")
-            + (f" | última: {last_score} ({last_date})" if last_score is not None else "")
+        render_evaluation_section(
+            ppg_id=ppg_id,
+            target_type="ptt",
+            target_id=ptt["id"],
+            form_key="ptts",
+            can_manage=can_create_eval,
+            people=people,
+            evaluator_id=current_person(),
         )
-
-        st.markdown("**Avaliações**")
-        evaluations = sorted(
-            list_target_evaluations("ptt", ptt["id"]), key=lambda ev: ev.get("created_at", ""), reverse=True
-        )
-        for ev in evaluations:
-            st.write(
-                f"Nota final: {ev.get('final_score')} | Data: {ev.get('created_at', 'N/A')} | "
-                f"Avaliador: {people.get(ev.get('evaluator_id'), ev.get('evaluator_id', '-'))}"
-            )
-            if ev.get("notes"):
-                st.caption(ev.get("notes"))
-
-        if can_create_eval:
-            st.page_link("pages/07_Avaliações.py", label="Criar avaliação", icon="✏️")
-        else:
-            st.info("Perfil atual permite apenas visualizar avaliações.")
 
 
 if can_create:
