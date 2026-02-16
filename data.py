@@ -39,6 +39,23 @@ from demo_store import (
 )
 
 
+def _ensure_project_exists(project_id: Optional[str], field_label: str = "projeto") -> str:
+    if not project_id:
+        raise ValueError(f"{field_label.capitalize()} é obrigatório.")
+    project = get_by_id("projects", project_id)
+    if not project:
+        raise ValueError("Projeto informado não existe.")
+    return project_id
+
+
+def _ensure_line_exists(line_id: Optional[str]) -> str:
+    if not line_id:
+        raise ValueError("Linha de pesquisa é obrigatória.")
+    line = get_by_id("research_lines", line_id)
+    if not line:
+        raise ValueError("Linha de pesquisa informada não existe.")
+    return line_id
+
 def list_ppgs() -> List[Dict[str, Any]]:
     return get_db().get("ppgs", [])
 
@@ -102,6 +119,7 @@ def upsert_person(payload: Dict[str, Any]) -> Dict[str, Any]:
 # Projects
 
 def create_project(ppg_id: str, name: str, description: Optional[str], line_id: Optional[str], status: str) -> Dict[str, Any]:
+    validated_line_id = _ensure_line_exists(line_id)
     return _upsert(
         "projects",
         {
@@ -109,7 +127,7 @@ def create_project(ppg_id: str, name: str, description: Optional[str], line_id: 
             "ppg_id": ppg_id,
             "name": name,
             "description": description,
-            "line_id": line_id,
+            "line_id": validated_line_id,
             "status": status,
             "orientadores_ids": [],
             "mestrandos_ids": [],
@@ -119,17 +137,21 @@ def create_project(ppg_id: str, name: str, description: Optional[str], line_id: 
 
 def update_project(project_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
     payload["id"] = project_id
+    existing = get_by_id("projects", project_id) or {}
+    line_id = payload.get("line_id", existing.get("line_id"))
+    payload["line_id"] = _ensure_line_exists(line_id)
     project = _upsert("projects", payload)
     return project
 
 
 def delete_project(project_id: str) -> None:
-    _delete("projects", project_id)
-    # remove links from articles/dissertations/ptts
+    linked = []
     for collection in ["articles", "dissertations", "ptts"]:
-        for row in get_db().get(collection, []):
-            if row.get("project_id") == project_id:
-                row["project_id"] = None
+        if any(row.get("project_id") == project_id for row in get_db().get(collection, [])):
+            linked.append(collection)
+    if linked:
+        raise ValueError("Não é possível excluir projeto com produções vinculadas.")
+    _delete("projects", project_id)
 
 
 def set_project_orientadores(project_id: str, orientadores: List[str]) -> None:
@@ -173,6 +195,7 @@ def get_project_mestrandos(project_id: str) -> List[Dict[str, Any]]:
 def upsert_dissertation(payload: Dict[str, Any]) -> Dict[str, Any]:
     if not payload.get("id"):
         payload["id"] = next_id("diss")
+    payload["project_id"] = _ensure_project_exists(payload.get("project_id"), field_label="projeto")
     diss = _upsert("dissertations", payload)
     _sync_dissertation_links(diss)
     return diss
@@ -210,6 +233,7 @@ def upsert_article(payload: Dict[str, Any]) -> Dict[str, Any]:
     is_new = not payload.get("id")
     if is_new:
         payload["id"] = next_id("art")
+    payload["project_id"] = _ensure_project_exists(payload.get("project_id"), field_label="projeto")
     article = _upsert("articles", payload)
     _maybe_attach_to_dissertation(article)
     return article
@@ -233,6 +257,7 @@ def _maybe_attach_to_dissertation(article: Dict[str, Any]) -> None:
 def upsert_ptt(payload: Dict[str, Any]) -> Dict[str, Any]:
     if not payload.get("id"):
         payload["id"] = next_id("ptt")
+    payload["project_id"] = _ensure_project_exists(payload.get("project_id"), field_label="projeto")
     ptt = _upsert("ptts", payload)
     _maybe_attach_ptt_to_dissertation(ptt)
     return ptt

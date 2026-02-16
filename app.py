@@ -55,8 +55,8 @@ def _sidebar() -> None:
 
     st.sidebar.divider()
     st.sidebar.header("Navegação")
+    st.sidebar.page_link("pages/02_PPG_Admin.py", label="PPG Admin")
     st.sidebar.page_link("pages/01_Visão_Geral.py", label="Visão Geral")
-    st.sidebar.page_link("pages/02_PPG_Admin.py", label="Administração do PPG")
     st.sidebar.page_link("pages/03_Projetos.py", label="Projetos")
     st.sidebar.page_link("pages/04_Dissertações.py", label="Dissertações")
     st.sidebar.page_link("pages/05_Artigos.py", label="Artigos")

@@ -33,18 +33,25 @@ col2.metric("Dissertações", len(dissertations))
 col3.metric("Artigos", len(articles))
 col3.metric("PTTs", len(ptts))
 
-st.subheader("Produção por projeto")
-rows = []
+st.subheader("Produção por Linha de Pesquisa")
+line_map = {line.get("id"): line.get("name") for line in lines}
+rows_by_line: dict[str, dict[str, int | str]] = {}
+
 for proj in projects:
-    rows.append(
-        {
-            "Projeto": proj.get("name"),
-            "#Dissertações": len(list_project_dissertations(proj.get("id"))),
-            "#Artigos": len(list_project_articles(proj.get("id"))),
-            "#PTTs": len(list_project_ptts(proj.get("id"))),
+    line_id = proj.get("line_id")
+    line_name = line_map.get(line_id) or "Sem linha"
+    if line_name not in rows_by_line:
+        rows_by_line[line_name] = {
+            "Linha de Pesquisa": line_name,
+            "#Dissertações": 0,
+            "#Artigos": 0,
+            "#PTTs": 0,
         }
-    )
-if rows:
-    st.dataframe(pd.DataFrame(rows), use_container_width=True)
+    rows_by_line[line_name]["#Dissertações"] += len(list_project_dissertations(proj.get("id")))
+    rows_by_line[line_name]["#Artigos"] += len(list_project_articles(proj.get("id")))
+    rows_by_line[line_name]["#PTTs"] += len(list_project_ptts(proj.get("id")))
+
+if rows_by_line:
+    st.dataframe(pd.DataFrame(rows_by_line.values()).sort_values("Linha de Pesquisa"), use_container_width=True)
 else:
     st.info("Nenhum projeto cadastrado.")
