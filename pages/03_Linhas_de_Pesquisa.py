@@ -12,6 +12,7 @@ from demo_seed import ensure_demo_db
 from demo_store import get_db
 from data import add_research_line
 from layout import configure_page, render_sidebar
+from status_utils import available_filter_labels, filter_label_to_key, status_label
 
 ensure_demo_db()
 
@@ -113,7 +114,7 @@ def _project_tabs(
         article_to_dissertations[article_id].append(dissertation_label)
         dissertation_to_articles[dissertation_id].append(article_label)
 
-    article_status_by_id = {a.get("id"): a.get("status") or "planejado" for a in project_articles}
+    article_status_by_id = {a.get("id"): status_label(a.get("status")) for a in project_articles}
     for article_id, dissertation_id in link_pairs:
         if article_id and dissertation_id:
             dissertation_to_article_statuses[dissertation_id].append(article_status_by_id.get(article_id, "planejado"))
@@ -123,7 +124,7 @@ def _project_tabs(
         if not dissertation_id:
             continue
         dissertation_to_ptts[dissertation_id].append(ptt.get("title") or ptt.get("id") or "-")
-        dissertation_to_ptt_statuses[dissertation_id].append(ptt.get("status") or "planejado")
+        dissertation_to_ptt_statuses[dissertation_id].append(status_label(ptt.get("status")))
 
     shared_articles = {aid for aid, diss_list in article_to_dissertations.items() if len(set(diss_list)) > 1}
 
@@ -166,7 +167,7 @@ def _project_tabs(
                         "Discente": _person_name(people_map, diss.get("mestrando_id")),
                         "Título": diss.get("title"),
                         "Ano": diss.get("year", "-"),
-                        "Status": diss.get("status", "-"),
+                        "Status": status_label(diss.get("status")),
                         "Artigos associados": ", ".join(artigos) if artigos else "-",
                         "Status dos artigos": ", ".join(dissertation_to_article_statuses.get(diss_id, [])) or "-",
                         "PTTs associados": ", ".join(dissertation_to_ptts.get(diss_id, [])) or "-",
@@ -205,7 +206,7 @@ def _project_tabs(
                         "Título": ptt.get("title"),
                         "Tipo": ptt.get("tipo_ptt") or "-",
                         "Ano": ptt.get("year", "-"),
-                        "Status": ptt.get("status", "-"),
+                        "Status": status_label(ptt.get("status")),
                     }
                     for ptt in project_ptts
                 ]
@@ -288,7 +289,7 @@ if not lines:
 
 # Filtros persistentes em sessão
 current_year = st.session_state.get("linhas_filter_year", "Todos")
-status_options = ["Todos"] + sorted({p.get("status", "-") for p in projects})
+status_options = ["Todos"] + available_filter_labels(p.get("status") for p in projects if p.get("status"))
 current_status = st.session_state.get("linhas_filter_status", "Todos")
 
 filter_col1, filter_col2 = st.columns(2)
@@ -311,8 +312,9 @@ for line in lines:
     line_id = line.get("id")
     line_projects = [p for p in projects if p.get("line_id") == line_id]
 
-    if status_option != "Todos":
-        line_projects = [p for p in line_projects if p.get("status") == status_option]
+    selected_status_key = filter_label_to_key(status_option)
+    if selected_status_key is not None:
+        line_projects = [p for p in line_projects if p.get("status") == selected_status_key]
 
     line_project_ids = {p.get("id") for p in line_projects}
     line_dissertations = [d for d in dissertations if d.get("project_id") in line_project_ids]
@@ -393,7 +395,7 @@ for line in lines:
             title = project.get("name") or "Projeto sem título"
             period = f"{project.get('start_date', '-')} → {project.get('end_date', '-') }"
             header = (
-                f"{title} | Status: {project.get('status', '-')} | Período: {period} | "
+                f"{title} | Status: {status_label(project.get('status'))} | Período: {period} | "
                 f"Mestrandos: {len(project_mestrandos)} | Dissertações: {len(project_dissertations)} | "
                 f"Artigos: {len({a.get('id') for a in project_articles})} | PTTs: {len(project_ptts)}"
             )

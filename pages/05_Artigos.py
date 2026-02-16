@@ -18,20 +18,29 @@ from data import (
     upsert_article,
 )
 
+from status_utils import (
+    available_filter_labels,
+    filter_label_to_key,
+    selector_default_label,
+    selector_label_to_key,
+    selector_labels,
+    status_label,
+)
+
 ensure_demo_db()
 
 configure_page()
 render_sidebar()
 
-STATUS_OPTIONS = ["planejado", "em_execucao", "concluido"]
-
-
 def status_selector(label: str, value: str | None, key: str) -> str:
-    default_value = value if value in STATUS_OPTIONS else STATUS_OPTIONS[0]
+    options = selector_labels()
+    default_value = selector_default_label(value)
     segmented = getattr(st, "segmented_control", None)
     if segmented:
-        return segmented(label, STATUS_OPTIONS, default=default_value, key=key)
-    return st.radio(label, STATUS_OPTIONS, horizontal=True, index=STATUS_OPTIONS.index(default_value), key=key)
+        selected = segmented(label, options, default=default_value, key=key)
+    else:
+        selected = st.radio(label, options, horizontal=True, index=options.index(default_value), key=key)
+    return selector_label_to_key(selected)
 
 st.title("Artigos")
 ppg_id = current_ppg()
@@ -51,14 +60,15 @@ if not articles:
     st.info("Nenhum artigo cadastrado para este PPG.")
     st.stop()
 
-status_filter_options = sorted({article.get("status") for article in articles if article.get("status")})
+status_filter_options = available_filter_labels(article.get("status") for article in articles if article.get("status"))
 status_filter = st.selectbox("Filtrar por status", ["Todos"] + status_filter_options, index=0)
 filtered_articles = articles
-if status_filter != "Todos":
-    filtered_articles = [article for article in articles if (article.get("status") or "") == status_filter]
+selected_filter_key = filter_label_to_key(status_filter)
+if selected_filter_key is not None:
+    filtered_articles = [article for article in articles if (article.get("status") or "") == selected_filter_key]
 
 for article in filtered_articles:
-    title_with_status = f"{article.get('title') or '(Sem título)'} | Status: {article.get('status') or 'planejado'}"
+    title_with_status = f"{article.get('title') or '(Sem título)'} | Status: {status_label(article.get('status'))}"
     with st.expander(title_with_status, expanded=False):
         st.write(article.get("summary") or "Sem resumo")
         st.caption(
@@ -66,7 +76,7 @@ for article in filtered_articles:
             f"Linha: {lines.get(article.get('line_id')) or 'Sem linha'} | Ano: {article.get('year') or 'N/A'}"
         )
         st.caption(
-            f"Status: {article.get('status') or 'planejado'} | Dissertação: {disserts.get(article.get('dissertation_id')) or 'Sem vínculo'}"
+            f"Status: {status_label(article.get('status'))} | Dissertação: {disserts.get(article.get('dissertation_id')) or 'Sem vínculo'}"
         )
 
         with st.form(f"article-status-{article['id']}"):

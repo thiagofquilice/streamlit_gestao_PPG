@@ -20,7 +20,7 @@ def article_form(ppg_id: str) -> None:
         titulo = st.text_input("Título")
         autores = st.text_input("Autores")
         ano = st.number_input("Ano", min_value=2000, max_value=2100, value=2024)
-        status = st.selectbox("Status", ["Em andamento", "Submetido", "Publicado"])
+        status = st.selectbox("Status", ["Planejado", "Em execução", "Concluído"])
         submitted = st.form_submit_button("Salvar artigo")
     if submitted:
         try:
@@ -35,7 +35,7 @@ def ptt_form(ppg_id: str) -> None:
         st.subheader("Cadastrar PTT")
         tema = st.text_input("Tema")
         responsavel = st.text_input("Responsável")
-        status = st.selectbox("Status", ["Rascunho", "Em revisão", "Aprovado"])
+        status = st.selectbox("Status", ["Planejado", "Em execução", "Concluído"])
         submitted = st.form_submit_button("Salvar PTT")
     if submitted:
         try:
