@@ -119,7 +119,7 @@ def upsert_person(payload: Dict[str, Any]) -> Dict[str, Any]:
 # Projects
 
 def create_project(ppg_id: str, name: str, description: Optional[str], line_id: Optional[str], status: str) -> Dict[str, Any]:
-    validated_line_id = _ensure_line_exists(line_id)
+    validated_line_id = _ensure_line_exists(line_id) if line_id else None
     return _upsert(
         "projects",
         {
@@ -139,7 +139,7 @@ def update_project(project_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
     payload["id"] = project_id
     existing = get_by_id("projects", project_id) or {}
     line_id = payload.get("line_id", existing.get("line_id"))
-    payload["line_id"] = _ensure_line_exists(line_id)
+    payload["line_id"] = _ensure_line_exists(line_id) if line_id else None
     project = _upsert("projects", payload)
     return project
 

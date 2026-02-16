@@ -19,6 +19,10 @@ configure_page("Linhas de Pesquisa")
 render_sidebar()
 
 st.title("Linhas de Pesquisa")
+st.info(
+    "A associação de Dissertações, Artigos e PTTs às Linhas de Pesquisa e aos Projetos deve ser feita "
+    "nos respectivos menus na coluna de navegação."
+)
 
 if "show_add_line_form_linhas" not in st.session_state:
     st.session_state.show_add_line_form_linhas = False
