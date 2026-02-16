@@ -119,7 +119,17 @@ def _project_tabs(
 
     shared_articles = {aid for aid, diss_list in article_to_dissertations.items() if len(set(diss_list)) > 1}
 
-    tabs = st.tabs(["Mestrandos", "Dissertações", "Artigos", "PTTs", "Matriz (Dissertação × Artigo)"])
+    tabs = st.tabs(
+        [
+            "Mestrandos",
+            "Dissertações",
+            "Artigos",
+            "PTTs",
+            "Matriz (Dissertação × Artigo)",
+            "Matriz (Dissertação × PTT)",
+            "Matriz (Artigo × PTT)",
+        ]
+    )
 
     with tabs[0]:
         if project_mestrandos:
@@ -209,6 +219,45 @@ def _project_tabs(
                 }
                 for col_label, art_id in zip(article_columns, article_ids):
                     row[col_label] = "✅" if (art_id, diss.get("id")) in link_pairs else ""
+                matrix_rows.append(row)
+            st.dataframe(pd.DataFrame(matrix_rows), use_container_width=True, hide_index=True)
+
+    with tabs[5]:
+        if not project_dissertations or not project_ptts:
+            st.info("Matriz indisponível: é necessário ter ao menos uma dissertação e um PTT.")
+        else:
+            matrix_rows = []
+            ptt_columns = [f"{p.get('title', p.get('id'))[:30]} ({p.get('year', '-')})" for p in project_ptts]
+            ptt_dissertation_ids = [p.get("dissertation_id") for p in project_ptts]
+            for diss in project_dissertations:
+                row = {
+                    "Dissertação": f"{(diss.get('title') or diss.get('id'))[:40]} — {_person_name(people_map, diss.get('mestrando_id'))}"
+                }
+                diss_id = diss.get("id")
+                for col_label, ptt_diss_id in zip(ptt_columns, ptt_dissertation_ids):
+                    row[col_label] = "✅" if ptt_diss_id and ptt_diss_id == diss_id else ""
+                matrix_rows.append(row)
+            st.dataframe(pd.DataFrame(matrix_rows), use_container_width=True, hide_index=True)
+
+    with tabs[6]:
+        if not project_articles or not project_ptts:
+            st.info("Matriz indisponível: é necessário ter ao menos um artigo e um PTT.")
+        else:
+            article_dissertations = {article_id: set() for article_id in article_title_by_id}
+            for article_id, dissertation_id in link_pairs:
+                article_dissertations.setdefault(article_id, set()).add(dissertation_id)
+
+            matrix_rows = []
+            ptt_columns = [f"{p.get('title', p.get('id'))[:30]} ({p.get('year', '-')})" for p in project_ptts]
+            ptt_dissertation_ids = [p.get("dissertation_id") for p in project_ptts]
+            for article in project_articles:
+                article_id = article.get("id")
+                row = {
+                    "Artigo": f"{(article.get('title') or article_id)[:50]} ({article.get('year', '-')})"
+                }
+                linked_dissertations = article_dissertations.get(article_id, set())
+                for col_label, ptt_diss_id in zip(ptt_columns, ptt_dissertation_ids):
+                    row[col_label] = "✅" if ptt_diss_id and ptt_diss_id in linked_dissertations else ""
                 matrix_rows.append(row)
             st.dataframe(pd.DataFrame(matrix_rows), use_container_width=True, hide_index=True)
 
