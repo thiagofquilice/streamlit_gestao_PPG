@@ -91,15 +91,39 @@ def _line_docentes(line: Dict[str, Any], people: List[Dict[str, Any]]) -> Tuple[
     return permanentes, colaboradores
 
 
-def _render_entity_links(items: List[Dict[str, Any]], label_key: str, page_path: str, target_type: str, prefix: str) -> None:
+def _render_entity_table_navigation(
+    items: List[Dict[str, Any]],
+    label_key: str,
+    label_column: str,
+    page_path: str,
+    target_type: str,
+    key: str,
+) -> None:
     if not items:
         st.caption("Nenhum item vinculado.")
         return
-    for idx, item in enumerate(items):
+
+    display_rows = []
+    for item in items:
         item_id = item.get("id")
         label = item.get(label_key) or item_id or "(Sem título)"
-        if st.button(label, key=f"{prefix}-{item_id or idx}", type="secondary"):
-            navigate_to(page_path, target_type, item_id)
+        display_rows.append({"_id": item_id, label_column: label})
+
+    nav_df = pd.DataFrame(display_rows)
+    event = st.dataframe(
+        nav_df[[label_column]],
+        use_container_width=True,
+        hide_index=True,
+        on_select="rerun",
+        selection_mode="single-row",
+        key=key,
+    )
+
+    selected_rows = event.selection.get("rows", []) if event and getattr(event, "selection", None) else []
+    if selected_rows:
+        selected_row = selected_rows[0]
+        if 0 <= selected_row < len(nav_df):
+            navigate_to(page_path, target_type, nav_df.iloc[selected_row]["_id"])
 
 
 def _project_tabs(
@@ -153,10 +177,16 @@ def _project_tabs(
     )
 
     with tabs[0]:
-        _render_entity_links(project_mestrandos, "name", "pages/10_Cadastro_de_pessoal.py", "person", f"line-proj-mestrando-{project.get('id')}")
+        _render_entity_table_navigation(
+            project_mestrandos,
+            "name",
+            "Mestrando",
+            "pages/10_Cadastro_de_pessoal.py",
+            "person",
+            f"line-proj-mestrando-table-{project.get('id')}",
+        )
 
     with tabs[1]:
-        _render_entity_links(project_dissertations, "title", "pages/04_Dissertações.py", "dissertation", f"line-proj-diss-{project.get('id')}")
         if project_dissertations:
             rows = []
             for diss in project_dissertations:
@@ -174,13 +204,26 @@ def _project_tabs(
                         "Status dos PTTs": ", ".join(dissertation_to_ptt_statuses.get(diss_id, [])) or "-",
                     }
                 )
-            st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+            diss_df = pd.DataFrame(rows)
+            event = st.dataframe(
+                diss_df,
+                use_container_width=True,
+                hide_index=True,
+                on_select="rerun",
+                selection_mode="single-row",
+                key=f"line-proj-diss-table-{project.get('id')}",
+            )
+            selected_rows = event.selection.get("rows", []) if event and getattr(event, "selection", None) else []
+            if selected_rows:
+                selected_idx = selected_rows[0]
+                if 0 <= selected_idx < len(project_dissertations):
+                    selected_diss = project_dissertations[selected_idx]
+                    navigate_to("pages/04_Dissertações.py", "dissertation", selected_diss.get("id"))
             st.caption("Artigos podem ser compartilhados entre dissertações pela relação N:N artigo_dissertacao.")
         else:
             st.info("Sem dissertações vinculadas ao projeto.")
 
     with tabs[2]:
-        _render_entity_links(project_articles, "title", "pages/05_Artigos.py", "article", f"line-proj-article-{project.get('id')}")
         if project_articles:
             article_rows = []
             for article in project_articles:
@@ -195,13 +238,53 @@ def _project_tabs(
                         "Compartilhado": "Sim" if article_id in shared_articles else "Não",
                     }
                 )
-            st.dataframe(pd.DataFrame(article_rows), use_container_width=True, hide_index=True)
+            article_df = pd.DataFrame(article_rows)
+            event = st.dataframe(
+                article_df,
+                use_container_width=True,
+                hide_index=True,
+                on_select="rerun",
+                selection_mode="single-row",
+                key=f"line-proj-article-table-{project.get('id')}",
+            )
+            selected_rows = event.selection.get("rows", []) if event and getattr(event, "selection", None) else []
+            if selected_rows:
+                selected_idx = selected_rows[0]
+                if 0 <= selected_idx < len(project_articles):
+                    selected_article = project_articles[selected_idx]
+                    navigate_to("pages/05_Artigos.py", "article", selected_article.get("id"))
         else:
             st.info("Sem artigos vinculados ao projeto.")
 
     with tabs[3]:
-        _render_entity_links(project_ptts, "title", "pages/06_PTTs.py", "ptt", f"line-proj-ptt-{project.get('id')}")
-        if not project_ptts:
+        if project_ptts:
+            ptt_rows = []
+            for ptt in project_ptts:
+                ptt_rows.append(
+                    {
+                        "Título": ptt.get("title") or "-",
+                        "Tipo": ptt.get("type") or ptt.get("tipo") or "-",
+                        "Ano": ptt.get("year") or "-",
+                        "Status": status_label(ptt.get("status")),
+                        "Dissertação vinculada": diss_title_by_id.get(ptt.get("dissertation_id"), "-"),
+                    }
+                )
+            ptt_df = pd.DataFrame(ptt_rows)
+            event = st.dataframe(
+                ptt_df,
+                use_container_width=True,
+                hide_index=True,
+                on_select="rerun",
+                selection_mode="single-row",
+                key=f"line-proj-ptt-table-{project.get('id')}",
+            )
+            selected_rows = event.selection.get("rows", []) if event and getattr(event, "selection", None) else []
+            if selected_rows:
+                selected_idx = selected_rows[0]
+                if 0 <= selected_idx < len(project_ptts):
+                    selected_ptt = project_ptts[selected_idx]
+                    navigate_to("pages/06_PTTs.py", "ptt", selected_ptt.get("id"))
+        else:
             st.info("Sem PTTs vinculados ao projeto.")
 
     with tabs[4]:
