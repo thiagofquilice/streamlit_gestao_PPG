@@ -6,7 +6,15 @@ import streamlit as st
 
 from layout import configure_page, render_sidebar
 
-from data import list_dissertations, list_ppg_members, list_projects, list_research_lines, upsert_dissertation
+from data import (
+    list_articles,
+    list_dissertations,
+    list_ppg_members,
+    list_projects,
+    list_ptts,
+    list_research_lines,
+    upsert_dissertation,
+)
 from demo_context import current_ppg, current_profile
 from rbac import can
 
@@ -26,6 +34,9 @@ def status_selector(label: str, value: str | None, key: str) -> str:
     return st.radio(label, STATUS_OPTIONS, horizontal=True, index=STATUS_OPTIONS.index(default_value), key=key)
 
 st.title("Dissertações")
+st.info(
+    "A associação de Artigos e PTTs às dissertações deve ser feita nos menus de Artigos e PTTs na barra de navegação."
+)
 ppg_id = current_ppg()
 role = current_profile()
 if not ppg_id or not role:
@@ -46,9 +57,20 @@ orientadores = {m["user_id"]: m.get("display_name") or m["user_id"] for m in mem
 mestrandos = {m["user_id"]: m.get("display_name") or m["user_id"] for m in members if m.get("role") == "mestrando"}
 
 items = list_dissertations(ppg_id)
+all_articles = list_articles(ppg_id)
+all_ptts = list_ptts(ppg_id)
 if items:
     st.subheader("Dissertações cadastradas")
     for diss in items:
+        associated_articles = [
+            article
+            for article in all_articles
+            if article.get("dissertation_id") == diss.get("id") or article.get("id") in diss.get("artigos_ids", [])
+        ]
+        associated_ptts = [
+            ptt for ptt in all_ptts if ptt.get("dissertation_id") == diss.get("id") or ptt.get("id") in diss.get("ptts_ids", [])
+        ]
+
         with st.expander(diss.get("title") or "(Sem título)", expanded=False):
             st.write(diss.get("summary") or "Sem resumo")
             st.caption(f"Projeto: {project_options.get(diss.get('project_id')) or 'Sem projeto'}")
@@ -56,6 +78,18 @@ if items:
             st.caption(f"Status: {diss.get('status') or 'planejado'}")
             st.write("Orientador:", orientadores.get(diss.get("orientador_id")) or "Não definido")
             st.write("Mestrando:", mestrandos.get(diss.get("mestrando_id")) or "Não definido")
+            st.write("Artigos associados:")
+            if associated_articles:
+                for article in associated_articles:
+                    st.markdown(f"- {article.get('title') or '(Sem título)'}")
+            else:
+                st.caption("Nenhum artigo associado.")
+            st.write("PTTs associados:")
+            if associated_ptts:
+                for ptt in associated_ptts:
+                    st.markdown(f"- {ptt.get('title') or '(Sem título)'}")
+            else:
+                st.caption("Nenhum PTT associado.")
 
             if can_edit:
                 with st.form(f"edit-diss-{diss['id']}"):
