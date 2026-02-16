@@ -188,52 +188,71 @@ else:
 if can_create:
     st.divider()
     st.subheader("Cadastrar nova dissertação")
-    with st.form("form-diss"):
-        title = st.text_input("Título")
-        summary = st.text_area("Resumo")
-        year = st.number_input("Ano", min_value=1900, max_value=2100, value=2024, step=1)
-        project_id = st.selectbox(
-            "Projeto",
-            list(project_options.keys()),
-            format_func=lambda pid: project_options.get(pid, "Projeto inválido"),
-        )
-        line_id = st.selectbox(
-            "Linha (opcional)",
-            [None] + list(line_options.keys()),
-            format_func=lambda lid: line_options.get(lid, "Sem linha") if lid else "Sem linha",
-        )
-        orientador_id = st.selectbox(
-            "Orientador (opcional)",
-            [None] + list(orientadores.keys()),
-            format_func=lambda uid: orientadores.get(uid, "Sem orientador") if uid else "Sem orientador",
-        )
-        mestrando_id = st.selectbox(
-            "Mestrando (opcional)",
-            [None] + list(mestrandos.keys()),
-            format_func=lambda uid: mestrandos.get(uid, "Sem mestrando") if uid else "Sem mestrando",
-        )
-        status = status_selector("Status", None, key="status-new")
-        submitted = st.form_submit_button("Salvar", use_container_width=True)
-    if submitted and title:
-        try:
-            upsert_dissertation(
-                {
-                    "ppg_id": ppg_id,
-                    "title": title,
-                    "summary": summary,
-                    "year": int(year),
-                    "project_id": project_id,
-                    "line_id": line_id,
-                    "orientador_id": orientador_id,
-                    "mestrando_id": mestrando_id,
-                    "status": status,
-                    "artigos_ids": [],
-                    "ptts_ids": [],
-                }
+
+    add_new_key = "show_new_dissertation_form"
+    if add_new_key not in st.session_state:
+        st.session_state[add_new_key] = False
+
+    if st.button("Adicionar dissertação", use_container_width=True):
+        st.session_state[add_new_key] = True
+
+    if st.session_state[add_new_key]:
+        with st.form("form-diss"):
+            title = st.text_input("Título")
+            summary = st.text_area("Resumo")
+            year = st.number_input("Ano", min_value=1900, max_value=2100, value=2024, step=1)
+            project_id = st.selectbox(
+                "Projeto",
+                list(project_options.keys()),
+                format_func=lambda pid: project_options.get(pid, "Projeto inválido"),
             )
-            st.success("Dissertação salva.")
+            line_id = st.selectbox(
+                "Linha (opcional)",
+                [None] + list(line_options.keys()),
+                format_func=lambda lid: line_options.get(lid, "Sem linha") if lid else "Sem linha",
+            )
+            orientador_id = st.selectbox(
+                "Orientador (opcional)",
+                [None] + list(orientadores.keys()),
+                format_func=lambda uid: orientadores.get(uid, "Sem orientador") if uid else "Sem orientador",
+            )
+            mestrando_id = st.selectbox(
+                "Mestrando (opcional)",
+                [None] + list(mestrandos.keys()),
+                format_func=lambda uid: mestrandos.get(uid, "Sem mestrando") if uid else "Sem mestrando",
+            )
+            status = status_selector("Status", None, key="status-new")
+            save_col, cancel_col = st.columns(2)
+            with save_col:
+                submitted = st.form_submit_button("Salvar", use_container_width=True)
+            with cancel_col:
+                hide_form = st.form_submit_button("Cancelar", use_container_width=True)
+
+        if hide_form:
+            st.session_state[add_new_key] = False
             st.rerun()
-        except ValueError as exc:
-            st.error(str(exc))
+
+        if submitted and title:
+            try:
+                upsert_dissertation(
+                    {
+                        "ppg_id": ppg_id,
+                        "title": title,
+                        "summary": summary,
+                        "year": int(year),
+                        "project_id": project_id,
+                        "line_id": line_id,
+                        "orientador_id": orientador_id,
+                        "mestrando_id": mestrando_id,
+                        "status": status,
+                        "artigos_ids": [],
+                        "ptts_ids": [],
+                    }
+                )
+                st.success("Dissertação salva.")
+                st.session_state[add_new_key] = False
+                st.rerun()
+            except ValueError as exc:
+                st.error(str(exc))
 else:
     st.info("Seu perfil não permite cadastrar dissertações.")
