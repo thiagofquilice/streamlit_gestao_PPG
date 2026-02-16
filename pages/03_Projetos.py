@@ -46,6 +46,16 @@ projects = list_projects(ppg_id)
 if not projects:
     st.info("Nenhum projeto cadastrado para este PPG.")
 
+project_statuses = sorted({p.get("status") for p in projects if p.get("status")})
+project_status_filter = st.selectbox(
+    "Filtrar por status",
+    options=["Todos"] + project_statuses,
+    index=0,
+)
+filtered_projects = projects
+if project_status_filter != "Todos":
+    filtered_projects = [p for p in projects if (p.get("status") or "") == project_status_filter]
+
 st.caption(
     "Visualização no DEMO. Cada projeto mostra vínculos com orientadores, mestrandos, dissertações, artigos e PTTs."
 )
@@ -159,10 +169,10 @@ def _render_project_group(title: str, group_projects: List[Dict[str, Any]]) -> N
 
 if projects:
     for line in lines:
-        grouped_projects = [p for p in projects if p.get("line_id") == line.get("id")]
+        grouped_projects = [p for p in filtered_projects if p.get("line_id") == line.get("id")]
         _render_project_group(line.get("name") or "Linha sem nome", grouped_projects)
 
-    unlinked_projects = [p for p in projects if not p.get("line_id")]
+    unlinked_projects = [p for p in filtered_projects if not p.get("line_id")]
     _render_project_group("Projetos não vinculados a uma Linha de Pesquisa", unlinked_projects)
 
 st.divider()

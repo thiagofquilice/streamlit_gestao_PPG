@@ -59,9 +59,16 @@ mestrandos = {m["user_id"]: m.get("display_name") or m["user_id"] for m in membe
 items = list_dissertations(ppg_id)
 all_articles = list_articles(ppg_id)
 all_ptts = list_ptts(ppg_id)
+
+status_filter_options = sorted({item.get("status") for item in items if item.get("status")})
+status_filter = st.selectbox("Filtrar por status", ["Todos"] + status_filter_options, index=0)
+filtered_items = items
+if status_filter != "Todos":
+    filtered_items = [item for item in items if (item.get("status") or "") == status_filter]
+
 if items:
     st.subheader("Dissertações cadastradas")
-    for diss in items:
+    for diss in filtered_items:
         associated_articles = [
             article
             for article in all_articles
@@ -71,7 +78,8 @@ if items:
             ptt for ptt in all_ptts if ptt.get("dissertation_id") == diss.get("id") or ptt.get("id") in diss.get("ptts_ids", [])
         ]
 
-        with st.expander(diss.get("title") or "(Sem título)", expanded=False):
+        title_with_status = f"{diss.get('title') or '(Sem título)'} | Status: {diss.get('status') or 'planejado'}"
+        with st.expander(title_with_status, expanded=False):
             st.write(diss.get("summary") or "Sem resumo")
             st.caption(f"Projeto: {project_options.get(diss.get('project_id')) or 'Sem projeto'}")
             st.caption(f"Linha: {line_options.get(diss.get('line_id')) or 'Sem linha'} | Ano: {diss.get('year') or 'N/A'}")

@@ -51,8 +51,15 @@ if not ptts:
     st.info("Nenhum PTT cadastrado para este PPG.")
     st.stop()
 
-for ptt in ptts:
-    with st.expander(ptt.get("title") or "(Sem título)", expanded=False):
+status_filter_options = sorted({ptt.get("status") for ptt in ptts if ptt.get("status")})
+status_filter = st.selectbox("Filtrar por status", ["Todos"] + status_filter_options, index=0)
+filtered_ptts = ptts
+if status_filter != "Todos":
+    filtered_ptts = [ptt for ptt in ptts if (ptt.get("status") or "") == status_filter]
+
+for ptt in filtered_ptts:
+    title_with_status = f"{ptt.get('title') or '(Sem título)'} | Status: {ptt.get('status') or 'planejado'}"
+    with st.expander(title_with_status, expanded=False):
         st.write(ptt.get("summary") or "Sem resumo")
         st.caption(
             f"Projeto: {projects.get(ptt.get('project_id')) or 'Sem projeto'} | "
