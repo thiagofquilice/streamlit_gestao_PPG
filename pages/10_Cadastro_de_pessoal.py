@@ -15,6 +15,7 @@ from data import (
     upsert_person,
 )
 from layout import configure_page, render_sidebar
+from navigation_utils import consume_nav_target
 
 ensure_demo_db()
 
@@ -47,6 +48,10 @@ if segmented:
 else:
     selected_label = st.radio("Perfis", options, horizontal=True, index=0)
 selected_role = label_to_role[selected_label]
+selected_person_id = consume_nav_target("person")
+if selected_person_id:
+    selected_label = "Mestrandos"
+    selected_role = "mestrando"
 
 st.divider()
 
@@ -111,7 +116,7 @@ for person in visible_members:
     if person.get("line_id"):
         line_ids = [person.get("line_id")] + list(line_ids)
 
-    with st.expander(person_name, expanded=False):
+    with st.expander(person_name, expanded=(selected_person_id == person_id)):
         with st.container(border=True):
             st.caption(subtitle)
             if line_ids:

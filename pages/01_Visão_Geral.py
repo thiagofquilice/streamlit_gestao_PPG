@@ -6,6 +6,7 @@ import pandas as pd
 import streamlit as st
 
 from layout import configure_page, render_sidebar
+from navigation_utils import navigate_to
 
 from demo_context import current_person, current_ppg, current_profile
 from data import (
@@ -72,11 +73,14 @@ col3.metric("PTTs", len(ptts))
 st.subheader("Produção por Linha de Pesquisa")
 line_map = {line.get("id"): line.get("name") for line in lines}
 rows_by_line: dict[str, dict[str, int | str]] = {}
+line_id_by_name: dict[str, str] = {}
 
 for proj in projects:
     line_id = proj.get("line_id")
     line_name = line_map.get(line_id) or "Sem linha"
     if line_name not in rows_by_line:
+        if line_id:
+            line_id_by_name[line_name] = line_id
         rows_by_line[line_name] = {
             "Linha de Pesquisa": line_name,
             "#Projetos": 0,
@@ -90,6 +94,26 @@ for proj in projects:
     rows_by_line[line_name]["#PTTs"] += len(list_project_ptts(proj.get("id")))
 
 if rows_by_line:
-    st.dataframe(pd.DataFrame(rows_by_line.values()).sort_values("Linha de Pesquisa"), use_container_width=True)
+    sorted_rows = pd.DataFrame(rows_by_line.values()).sort_values("Linha de Pesquisa").to_dict(orient="records")
+    head = st.columns([3, 1, 1, 1, 1])
+    head[0].markdown("**Linha de Pesquisa**")
+    head[1].markdown("**#Projetos**")
+    head[2].markdown("**#Dissertações**")
+    head[3].markdown("**#Artigos**")
+    head[4].markdown("**#PTTs**")
+
+    for idx, row in enumerate(sorted_rows):
+        line_name = row["Linha de Pesquisa"]
+        cols = st.columns([3, 1, 1, 1, 1])
+        line_id = line_id_by_name.get(line_name)
+        if line_id:
+            if cols[0].button(line_name, key=f"overview-line-{idx}", type="tertiary"):
+                navigate_to("pages/03_Linhas_de_Pesquisa.py", "research_line", line_id)
+        else:
+            cols[0].write(line_name)
+        cols[1].write(row["#Projetos"])
+        cols[2].write(row["#Dissertações"])
+        cols[3].write(row["#Artigos"])
+        cols[4].write(row["#PTTs"])
 else:
     st.info("Nenhum projeto cadastrado.")

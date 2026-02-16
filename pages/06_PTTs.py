@@ -5,6 +5,7 @@ from demo_seed import ensure_demo_db
 import streamlit as st
 
 from layout import configure_page, render_sidebar
+from navigation_utils import consume_nav_target
 from components.evaluation_section import render_evaluation_section
 
 from demo_context import current_ppg, current_profile, current_person
@@ -98,9 +99,11 @@ selected_filter_key = filter_label_to_key(status_filter)
 if selected_filter_key is not None:
     filtered_ptts = [ptt for ptt in ptts if (ptt.get("status") or "") == selected_filter_key]
 
+selected_target_id = consume_nav_target("ptt")
+
 for ptt in filtered_ptts:
     title_with_status = f"{ptt.get('title') or '(Sem título)'} | Status: {status_label(ptt.get('status'))}"
-    with st.expander(title_with_status, expanded=False):
+    with st.expander(title_with_status, expanded=(selected_target_id == ptt.get("id"))):
         st.write(ptt.get("summary") or "Sem resumo")
         st.caption(
             f"Projeto: {projects.get(ptt.get('project_id')) or 'Sem projeto'} | "
