@@ -93,7 +93,7 @@ def _render_entity_links(items: List[Dict[str, Any]], label_key: str, page_path:
     for idx, item in enumerate(items):
         item_id = item.get("id")
         label = item.get(label_key) or item_id or "(Sem título)"
-        if st.button(label, key=f"{prefix}-{item_id or idx}", type="tertiary"):
+        if st.button(label, key=f"{prefix}-{item_id or idx}", type="secondary"):
             navigate_to(page_path, target_type, item_id)
 
 

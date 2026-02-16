@@ -107,7 +107,7 @@ if rows_by_line:
         cols = st.columns([3, 1, 1, 1, 1])
         line_id = line_id_by_name.get(line_name)
         if line_id:
-            if cols[0].button(line_name, key=f"overview-line-{idx}", type="tertiary"):
+            if cols[0].button(line_name, key=f"overview-line-{idx}", type="secondary"):
                 navigate_to("pages/03_Linhas_de_Pesquisa.py", "research_line", line_id)
         else:
             cols[0].write(line_name)
