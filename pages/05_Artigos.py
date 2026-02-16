@@ -51,8 +51,15 @@ if not articles:
     st.info("Nenhum artigo cadastrado para este PPG.")
     st.stop()
 
-for article in articles:
-    with st.expander(article.get("title") or "(Sem título)", expanded=False):
+status_filter_options = sorted({article.get("status") for article in articles if article.get("status")})
+status_filter = st.selectbox("Filtrar por status", ["Todos"] + status_filter_options, index=0)
+filtered_articles = articles
+if status_filter != "Todos":
+    filtered_articles = [article for article in articles if (article.get("status") or "") == status_filter]
+
+for article in filtered_articles:
+    title_with_status = f"{article.get('title') or '(Sem título)'} | Status: {article.get('status') or 'planejado'}"
+    with st.expander(title_with_status, expanded=False):
         st.write(article.get("summary") or "Sem resumo")
         st.caption(
             f"Projeto: {projects.get(article.get('project_id')) or 'Sem projeto'} | "
