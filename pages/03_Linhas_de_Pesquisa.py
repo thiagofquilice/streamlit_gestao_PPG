@@ -323,7 +323,8 @@ for line in lines:
                 f"Artigos: {len({a.get('id') for a in project_articles})} | PTTs: {len(project_ptts)}"
             )
 
-            with st.expander(header, expanded=False):
+            with st.container(border=True):
+                st.markdown(f"**{header}**")
                 st.caption(f"Docentes do projeto: {', '.join(docentes_proj) if docentes_proj else '-'}")
                 _project_tabs(
                     project,
