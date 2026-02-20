@@ -1,0 +1,7 @@
+arquivo_compactado: inpi_deposito_streamlit.zip
+algoritmo: SHA-256
+hash_sha256: e0aec3c9d07b782fa4aa201e1c86bcaab3010449ccc8519c9ad0faca616d5e60
+data_hora_utc: 2026-02-20T00:01:08Z
+commit_git: 627da1b71afe071fee5c86ddce7bab5e4a02a969
+incluido_resumo: codigo-fonte Python (*.py), README.md, requirements.txt, configuracoes do app (.streamlit/config.toml), pastas do app (pages/, components/), scripts e artefatos tecnicos do projeto.
+excluido_resumo: .git/, .github/, .venv/, venv/, __pycache__/, .pytest_cache/, .mypy_cache/, .streamlit/secrets.toml, .env, *.pyc, logs/, outputs/, arquivos temporarios de hash/manifesta e arquivos grandes de dados (nenhum identificado no estado atual).
