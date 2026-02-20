@@ -11,3 +11,6 @@ __pycache__/
 .dist-info/
 **/__pycache__/
 .venv/
+
+# INPI pacote gerado localmente (não versionar binário)
+inpi_deposito_streamlit.zip
