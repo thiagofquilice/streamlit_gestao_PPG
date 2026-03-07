@@ -33,11 +33,29 @@ if not ppg:
 with st.form("ppg_form"):
     nome = st.text_input("Nome do PPG", value=ppg.get("name", ""))
     descricao = st.text_area("Descrição", value=ppg.get("description", ""))
+    area = st.text_input("Área de avaliação", value=ppg.get("area", ""))
+    campus = st.text_input("Campus/Unidade", value=ppg.get("campus", ""))
+    modalidade = st.text_input("Modalidade/Nível", value=ppg.get("modality", ""))
+    missao = st.text_area("Missão", value=ppg.get("mission", ""))
+    visao = st.text_area("Visão", value=ppg.get("vision", ""))
+    quadrienio = st.text_input("Quadriênio", value=ppg.get("quadriennium", "2025-2028"))
     submitted = st.form_submit_button("Salvar")
 
 if submitted:
-    update_ppg(ppg_id, {"name": nome, "description": descricao})
+    update_ppg(
+        ppg_id,
+        {
+            "name": nome,
+            "description": descricao,
+            "area": area,
+            "campus": campus,
+            "modality": modalidade,
+            "mission": missao,
+            "vision": visao,
+            "quadriennium": quadrienio,
+        },
+    )
     st.success("PPG atualizado.")
     st.rerun()
 
-st.write("Use as demais páginas para gerenciar linhas, projetos e produções.")
+st.write("Use as demais páginas para gerenciar linhas, projetos, produções e evidências CAPES.")

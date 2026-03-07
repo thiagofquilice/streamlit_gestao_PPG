@@ -59,6 +59,15 @@ def _filter_by_ppg(items: Iterable[dict], ppg_id: str) -> List[dict]:
     return [item for item in items if item.get("ppg_id") == ppg_id]
 
 
+
+def list_collection(collection: str, ppg_id: Optional[str] = None) -> List[dict]:
+    rows = get_db().get(collection, [])
+    if not isinstance(rows, list):
+        return []
+    if ppg_id:
+        return _filter_by_ppg(rows, ppg_id)
+    return list(rows)
+
 def list_people(ppg_id: str, role: Optional[str] = None) -> List[dict]:
     people = _filter_by_ppg(get_db().get("people", []), ppg_id)
     if role:
@@ -201,6 +210,7 @@ __all__ = [
     "export_db_json",
     "import_db_json",
     "next_id",
+    "list_collection",
     "list_people",
     "list_lines",
     "list_projects",

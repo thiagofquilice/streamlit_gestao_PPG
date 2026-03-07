@@ -24,6 +24,7 @@ from demo_store import (
     list_articles,
     list_dissertations,
     list_lines,
+    list_collection,
     list_people,
     list_projects,
     list_ptts,
@@ -115,6 +116,79 @@ def upsert_person(payload: Dict[str, Any]) -> Dict[str, Any]:
         payload["id"] = next_id("person")
     return _upsert("people", payload)
 
+
+# CAPES-oriented modules
+
+def list_planning_goals(ppg_id: str) -> List[Dict[str, Any]]:
+    return list_collection("planning_goals", ppg_id)
+
+
+def upsert_planning_goal(payload: Dict[str, Any]) -> Dict[str, Any]:
+    if not payload.get("id"):
+        payload["id"] = next_id("goal")
+    return _upsert("planning_goals", payload)
+
+
+def delete_planning_goal(goal_id: str) -> None:
+    _delete("planning_goals", goal_id)
+
+
+def list_self_assessments(ppg_id: str) -> List[Dict[str, Any]]:
+    return list_collection("self_assessments", ppg_id)
+
+
+def upsert_self_assessment(payload: Dict[str, Any]) -> Dict[str, Any]:
+    if not payload.get("id"):
+        payload["id"] = next_id("sa")
+    return _upsert("self_assessments", payload)
+
+
+def delete_self_assessment(assessment_id: str) -> None:
+    _delete("self_assessments", assessment_id)
+
+
+def list_alumni(ppg_id: str) -> List[Dict[str, Any]]:
+    return list_collection("alumni", ppg_id)
+
+
+def upsert_alumnus(payload: Dict[str, Any]) -> Dict[str, Any]:
+    if not payload.get("id"):
+        payload["id"] = next_id("al")
+    return _upsert("alumni", payload)
+
+
+def delete_alumnus(alumnus_id: str) -> None:
+    _delete("alumni", alumnus_id)
+
+
+def list_impact_cases(ppg_id: str) -> List[Dict[str, Any]]:
+    return list_collection("impact_cases", ppg_id)
+
+
+def upsert_impact_case(payload: Dict[str, Any]) -> Dict[str, Any]:
+    if not payload.get("id"):
+        payload["id"] = next_id("impact")
+    payload.setdefault("involved_people_ids", [])
+    payload.setdefault("evidence_ids", [])
+    return _upsert("impact_cases", payload)
+
+
+def delete_impact_case(case_id: str) -> None:
+    _delete("impact_cases", case_id)
+
+
+def list_evidence_items(ppg_id: str) -> List[Dict[str, Any]]:
+    return list_collection("evidence_items", ppg_id)
+
+
+def upsert_evidence_item(payload: Dict[str, Any]) -> Dict[str, Any]:
+    if not payload.get("id"):
+        payload["id"] = next_id("ev")
+    return _upsert("evidence_items", payload)
+
+
+def delete_evidence_item(evidence_id: str) -> None:
+    _delete("evidence_items", evidence_id)
 
 # Projects
 

@@ -5,6 +5,7 @@ from typing import Dict, List
 
 import streamlit as st
 
+CURRENT_QUADRENNIUM = "2025-2028"
 
 def init_demo_db() -> Dict[str, List[dict]]:
     """Return deterministic demo data representing a full PPG."""
@@ -13,7 +14,13 @@ def init_demo_db() -> Dict[str, List[dict]]:
             {
                 "id": "ppg1",
                 "name": "PPG Piloto",
-                "description": "Ambiente DEMO para validar relações entre cadastros.",
+                "description": "Ambiente DEMO para validar relacoes entre cadastros.",
+                "area": "Administracao, Ciencias Contabeis e Turismo",
+                "campus": "IFMG - Campus Formiga",
+                "modality": "Mestrado Profissional",
+                "mission": "Formar profissionais e pesquisadores com foco em impacto aplicado.",
+                "vision": "Ser referencia regional em formacao e impacto no ciclo CAPES.",
+                "quadriennium": CURRENT_QUADRENNIUM,
             }
         ],
         "people": [
@@ -265,6 +272,118 @@ def init_demo_db() -> Dict[str, List[dict]]:
                 "dissertation_id": "d2",
                 "orientador_id": "u_or2",
                 "mestrando_id": "u_m3",
+            },
+        ],
+        "planning_goals": [
+            {
+                "id": "goal1",
+                "ppg_id": "ppg1",
+                "strategic_objective": "Consolidar portfolio de evidencias de impacto do PPG.",
+                "action": "Documentar casos com narrativa, metricas e validacao externa.",
+                "indicator": "Quantidade de casos de impacto validados",
+                "target": "2 casos ate o fim do quadrienio",
+                "deadline": "2028-12-31",
+                "responsible": "Coordenacao do PPG",
+                "status": "em_andamento",
+                "related_evidence_id": "ev1",
+            },
+            {
+                "id": "goal2",
+                "ppg_id": "ppg1",
+                "strategic_objective": "Institucionalizar autoavaliacao continua.",
+                "action": "Executar ciclo anual com devolutiva e plano de encaminhamento.",
+                "indicator": "Numero de ciclos completos por ano",
+                "target": "1 ciclo concluido por ano",
+                "deadline": "2026-12-31",
+                "responsible": "Comissao de Autoavaliacao",
+                "status": "planejado",
+                "related_evidence_id": "ev2",
+            },
+        ],
+        "self_assessments": [
+            {
+                "id": "sa1",
+                "ppg_id": "ppg1",
+                "cycle_period": "2025",
+                "instrument": "Formulario eletronico e reuniao ampliada",
+                "participants": "Docentes, discentes e egressos",
+                "assessed_dimensions": "Formacao discente, impacto e insercao social",
+                "key_findings": "Boa aderencia tematica, necessidade de reforco em escrita academica.",
+                "weaknesses": "Baixa sistematizacao do acompanhamento de egressos.",
+                "referrals": "Criar oficina de escrita e rotina de monitoramento de egressos.",
+                "referrals_status": "em_andamento",
+                "related_evidence_ids": ["ev2"],
+            }
+        ],
+        "alumni": [
+            {
+                "id": "al1",
+                "ppg_id": "ppg1",
+                "name": "Egresso(a) 1",
+                "cohort_year": 2024,
+                "dissertation_project_ptt_link": "Dissertacao d1 / Projeto p1 / PTT t1",
+                "professional_activity": "Gestao de planejamento e indicadores",
+                "sector": "Setor publico",
+                "position_role": "Gerente de Planejamento",
+                "progression": "Promocao para cargo de lideranca apos conclusao",
+                "evidence_testimonials": "Depoimento institucional e relatorio de resultados",
+                "perceived_ppg_contribution": "Aplicacao pratica de metodos de governanca e avaliacao.",
+            },
+            {
+                "id": "al2",
+                "ppg_id": "ppg1",
+                "name": "Egresso(a) 2",
+                "cohort_year": 2023,
+                "dissertation_project_ptt_link": "Projeto p2 / artigo aplicado",
+                "professional_activity": "Consultoria em transformacao digital",
+                "sector": "Setor privado",
+                "position_role": "Consultor(a)",
+                "progression": "Ampliacao de carteira e lideranca de projetos",
+                "evidence_testimonials": "Relatos de clientes e portfolio profissional",
+                "perceived_ppg_contribution": "Estruturacao de solucoes com base em pesquisa aplicada.",
+            },
+        ],
+        "impact_cases": [
+            {
+                "id": "impact1",
+                "ppg_id": "ppg1",
+                "case_title": "Dashboard de governanca adotado por orgao publico",
+                "context_problem": "Ausencia de monitoramento continuo de metas e indicadores.",
+                "ppg_contribution": "Desenvolvimento do dashboard e protocolo de analise.",
+                "involved_people_ids": ["u_or1", "u_m1"],
+                "external_partners": "Secretaria municipal e equipe tecnica",
+                "generated_product_action": "Implantacao de sistema de indicadores de governanca",
+                "transfer_mechanism": "Projeto aplicado, oficinas e reunioes tecnicas",
+                "results": "Uso recorrente em reunioes gerenciais e tomada de decisao.",
+                "evidence_ids": ["ev1"],
+                "replication_potential": "Alto potencial de reaplicacao em outros orgaos publicos.",
+                "status": "em_documentacao",
+            }
+        ],
+        "evidence_items": [
+            {
+                "id": "ev1",
+                "ppg_id": "ppg1",
+                "title": "Ata de implantacao do dashboard",
+                "evidence_type": "Documento institucional",
+                "related_module": "Casos de Impacto",
+                "description": "Registro formal da entrega e implantacao do produto tecnico.",
+                "link_file_path": "https://exemplo.local/ata-dashboard",
+                "date": "2025-12-30",
+                "notes": "Documento validado pela organizacao parceira.",
+                "status": "validado",
+            },
+            {
+                "id": "ev2",
+                "ppg_id": "ppg1",
+                "title": "Sintese do ciclo de autoavaliacao 2025",
+                "evidence_type": "Relatorio",
+                "related_module": "Autoavaliacao",
+                "description": "Consolidacao dos achados, fragilidades e encaminhamentos do ciclo.",
+                "link_file_path": "https://exemplo.local/autoavaliacao-2025",
+                "date": "2025-12-30",
+                "notes": "Versao preliminar em revisao.",
+                "status": "rascunho",
             },
         ],
         "evaluation_forms": {

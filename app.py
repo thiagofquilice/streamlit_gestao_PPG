@@ -14,10 +14,10 @@ def main() -> None:
     configure_page()
     ensure_demo_db()
     render_sidebar()
-    st.title("PPG Manager - Demo")
-    st.success("Use a barra lateral para navegar entre as páginas.")
+    st.title("PPG Manager - Hub CAPES (Demo)")
+    st.success("Use a barra lateral para navegar entre os módulos do hub de evidências CAPES.")
     st.info(
-        "Esta versão utiliza apenas dados em memória (st.session_state) com seed pré-carregado para validar vínculos entre entidades."
+        "Esta versão utiliza dados em memória (st.session_state) com seed demo para validar cadastros-base e módulos CAPES 2025-2028."
     )
     ctx = get_ctx()
     st.write(f"Perfil: {current_profile()} | Pessoa: {current_person() or 'Coordenação'} | PPG: {current_ppg()}")

@@ -14,11 +14,16 @@ from data import (
     list_articles,
     list_dissertations,
     list_ppg_members,
+    list_planning_goals,
     list_project_articles,
     list_project_dissertations,
     list_project_ptts,
     list_projects,
+    list_self_assessments,
     list_ptts,
+    list_alumni,
+    list_impact_cases,
+    list_evidence_items,
     list_research_lines,
 )
 
@@ -61,6 +66,11 @@ dissertations = list_dissertations(ppg_id)
 articles = list_articles(ppg_id)
 ptts = list_ptts(ppg_id)
 people = list_ppg_members(ppg_id)
+goals = list_planning_goals(ppg_id)
+self_assessments = list_self_assessments(ppg_id)
+alumni = list_alumni(ppg_id)
+impact_cases = list_impact_cases(ppg_id)
+evidence_items = list_evidence_items(ppg_id)
 
 col1, col2, col3 = st.columns(3)
 col1.metric("Pessoas", len(people))
@@ -70,6 +80,43 @@ col2.metric("Dissertações", len(dissertations))
 col3.metric("Artigos", len(articles))
 col3.metric("PTTs", len(ptts))
 
+
+col4, col5, col6, col7 = st.columns(4)
+col4.metric("Metas estratégicas", len(goals))
+col5.metric("Autoavaliações", len(self_assessments))
+col6.metric("Egressos", len(alumni))
+col7.metric("Casos de impacto", len(impact_cases))
+
+st.subheader("Painel de aderência CAPES 2025-2028")
+validated_evidence = len([item for item in evidence_items if item.get("status") == "validado"])
+panel_rows = [
+    {
+        "Dimensão": "Planejamento Estratégico",
+        "Situação": "Estruturado" if goals else "Inexistente",
+        "Detalhe": f"{len(goals)} metas cadastradas",
+    },
+    {
+        "Dimensão": "Autoavaliação",
+        "Situação": "Estruturado" if self_assessments else "Inexistente",
+        "Detalhe": f"{len(self_assessments)} ciclos registrados",
+    },
+    {
+        "Dimensão": "Egressos",
+        "Situação": "Estruturado" if alumni else "Inexistente",
+        "Detalhe": f"{len(alumni)} egressos acompanhados",
+    },
+    {
+        "Dimensão": "Casos de Impacto",
+        "Situação": "Estruturado" if impact_cases else "Inexistente",
+        "Detalhe": f"{len(impact_cases)} casos documentados",
+    },
+    {
+        "Dimensão": "Evidências",
+        "Situação": "Estruturado" if evidence_items else "Inexistente",
+        "Detalhe": f"{validated_evidence} evidências validadas de {len(evidence_items)}",
+    },
+]
+st.dataframe(pd.DataFrame(panel_rows), use_container_width=True, hide_index=True)
 st.subheader("Produção por Linha de Pesquisa")
 line_map = {line.get("id"): line.get("name") for line in lines}
 rows_by_line: dict[str, dict[str, int | str]] = {}

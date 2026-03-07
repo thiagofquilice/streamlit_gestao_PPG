@@ -9,16 +9,22 @@ from demo_store import export_db_json, import_db_json, list_people, reset_db
 
 PAGE_LINKS = [
     ("pages/02_PPG_Admin.py", "PPG Admin"),
-    ("pages/10_Cadastro_de_pessoal.py", "Cadastro de pessoal"),
     ("pages/01_Visão_Geral.py", "Visão Geral"),
+    ("pages/11_Planejamento_Estrategico.py", "Planejamento Estratégico"),
+    ("pages/12_Autoavaliacao.py", "Autoavaliação"),
+    ("pages/13_Egressos.py", "Egressos"),
+    ("pages/14_Casos_de_Impacto.py", "Casos de Impacto"),
+    ("pages/15_Evidencias.py", "Evidências"),
+    ("pages/10_Cadastro_de_pessoal.py", "Cadastro de pessoal"),
     ("pages/03_Linhas_de_Pesquisa.py", "Linhas de Pesquisa"),
     ("pages/03_Projetos.py", "Projetos"),
     ("pages/04_Dissertações.py", "Dissertações"),
     ("pages/05_Artigos.py", "Artigos"),
     ("pages/06_PTTs.py", "PTTs"),
     ("pages/07_Avaliações.py", "Cadastro de Classificações e Avaliações"),
+    ("pages/08_Relatórios.py", "Relatórios"),
+    ("pages/09_Fichas_CAPES.py", "Fichas CAPES"),
 ]
-
 
 def configure_page(title: str = "PPG Manager (Demo)") -> None:
     st.set_page_config(page_title=title, layout="wide", initial_sidebar_state="expanded")
@@ -27,7 +33,7 @@ def configure_page(title: str = "PPG Manager (Demo)") -> None:
 def render_sidebar() -> None:
     ensure_demo_db()
     ctx = get_ctx()
-    st.sidebar.title("PPG Demo")
+    st.sidebar.title("PPG Demo CAPES")
 
     profiles = ["coordenador", "orientador", "mestrando"]
     profile = st.sidebar.selectbox("Perfil atual", profiles, index=profiles.index(ctx.get("profile", "coordenador")))
