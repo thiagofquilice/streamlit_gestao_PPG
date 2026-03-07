@@ -34,6 +34,7 @@ ensure_demo_db()
 configure_page()
 render_sidebar()
 
+
 def status_selector(label: str, value: str | None, key: str) -> str:
     options = selector_labels()
     default_value = selector_default_label(value)
@@ -44,14 +45,15 @@ def status_selector(label: str, value: str | None, key: str) -> str:
         selected = st.radio(label, options, horizontal=True, index=options.index(default_value), key=key)
     return selector_label_to_key(selected)
 
+
 st.title("Dissertações")
 st.info(
-    "A associação de Artigos e PTTs às dissertações deve ser feita nos menus de Artigos e PTTs na barra de navegação."
+    "Você pode associar Artigos e PTTs diretamente nesta tela ou pelos menus de Artigos e PTTs "
+    "na barra de navegação."
 )
 ppg_id = current_ppg()
-role = current_profile()
-if not ppg_id or not role:
-    st.warning("Faça login e selecione um PPG para continuar.")
+profile = current_profile()
+if not ppg_id:
     st.stop()
 
 can_create = can("criar")
@@ -72,9 +74,9 @@ current_person_id = current_person()
 
 
 def _can_edit_dissertation(diss: dict) -> bool:
-    if role == "coordenador":
+    if profile == "coordenador":
         return True
-    if role != "orientador" or not current_person_id:
+    if profile != "orientador" or not current_person_id:
         return False
     if diss.get("created_by") == current_person_id:
         return True
@@ -83,9 +85,12 @@ def _can_edit_dissertation(diss: dict) -> bool:
     project = next((p for p in projects if p.get("id") == diss.get("project_id")), {})
     return current_person_id in (project.get("orientadores_ids") or [])
 
+
 items = list_dissertations(ppg_id)
 all_articles = list_articles(ppg_id)
 all_ptts = list_ptts(ppg_id)
+article_options = {article.get("id"): article.get("title") or article.get("id") for article in all_articles if article.get("id")}
+ptt_options = {ptt.get("id"): ptt.get("title") or ptt.get("id") for ptt in all_ptts if ptt.get("id")}
 
 status_filter_options = available_filter_labels(item.get("status") for item in items if item.get("status"))
 status_filter = st.selectbox("Filtrar por status", ["Todos"] + status_filter_options, index=0)
@@ -129,12 +134,18 @@ if items:
             else:
                 st.caption("Nenhum PTT associado.")
 
+            st.markdown("**Divulgação / disseminação para a sociedade**")
+            st.caption(f"Instrumento: {diss.get('dissemination_instrument') or '-'}")
+            st.caption(f"Público-alvo: {diss.get('target_audience') or '-'}")
+            st.caption(f"Impacto esperado: {diss.get('expected_impact') or '-'}")
+            st.caption(f"Impacto alcançado: {diss.get('achieved_impact') or '-'}")
+
             render_evaluation_section(
                 ppg_id=ppg_id,
                 target_type="dissertation",
                 target_id=diss["id"],
                 form_key="dissertations",
-                can_manage=role in ("coordenador", "orientador"),
+                can_manage=profile in ("coordenador", "orientador"),
                 people=people,
                 evaluator_id=current_person(),
             )
@@ -176,6 +187,53 @@ if items:
                         if diss.get("mestrando_id") in mestrandos
                         else 0,
                     )
+
+                    related_project_articles = [
+                        article.get("id") for article in all_articles if article.get("project_id") == project_id and article.get("id")
+                    ]
+                    related_project_ptts = [
+                        ptt.get("id") for ptt in all_ptts if ptt.get("project_id") == project_id and ptt.get("id")
+                    ]
+
+                    default_articles = [
+                        article_id
+                        for article_id in {
+                            *(diss.get("artigos_ids") or []),
+                            *[article.get("id") for article in associated_articles if article.get("id")],
+                        }
+                        if article_id in related_project_articles
+                    ]
+                    default_ptts = [
+                        ptt_id
+                        for ptt_id in {
+                            *(diss.get("ptts_ids") or []),
+                            *[ptt.get("id") for ptt in associated_ptts if ptt.get("id")],
+                        }
+                        if ptt_id in related_project_ptts
+                    ]
+
+                    artigos_ids = st.multiselect(
+                        "Relacionar Artigos",
+                        related_project_articles,
+                        default=default_articles,
+                        format_func=lambda aid: article_options.get(aid, aid),
+                    )
+                    ptts_ids = st.multiselect(
+                        "Relacionar PTTs",
+                        related_project_ptts,
+                        default=default_ptts,
+                        format_func=lambda pid: ptt_options.get(pid, pid),
+                    )
+
+                    st.markdown("**Divulgação / disseminação para a sociedade**")
+                    dissemination_instrument = st.text_input(
+                        "Instrumento de divulgação/disseminação",
+                        value=diss.get("dissemination_instrument") or "",
+                    )
+                    target_audience = st.text_input("Público-alvo", value=diss.get("target_audience") or "")
+                    expected_impact = st.text_area("Impacto esperado", value=diss.get("expected_impact") or "")
+                    achieved_impact = st.text_area("Impacto alcançado", value=diss.get("achieved_impact") or "")
+
                     status = status_selector("Status", diss.get("status"), key=f"status-{diss['id']}")
                     submitted = st.form_submit_button("Salvar", use_container_width=True)
                 if submitted and title:
@@ -192,8 +250,12 @@ if items:
                                 "orientador_id": orientador_id,
                                 "mestrando_id": mestrando_id,
                                 "status": status,
-                                "artigos_ids": diss.get("artigos_ids", []),
-                                "ptts_ids": diss.get("ptts_ids", []),
+                                "artigos_ids": artigos_ids,
+                                "ptts_ids": ptts_ids,
+                                "dissemination_instrument": dissemination_instrument.strip(),
+                                "target_audience": target_audience.strip(),
+                                "expected_impact": expected_impact.strip(),
+                                "achieved_impact": achieved_impact.strip(),
                                 "created_by": diss.get("created_by"),
                             }
                         )
@@ -240,6 +302,29 @@ if can_create:
                 [None] + list(mestrandos.keys()),
                 format_func=lambda uid: mestrandos.get(uid, "Sem mestrando") if uid else "Sem mestrando",
             )
+
+            related_project_articles = [
+                article.get("id") for article in all_articles if article.get("project_id") == project_id and article.get("id")
+            ]
+            related_project_ptts = [ptt.get("id") for ptt in all_ptts if ptt.get("project_id") == project_id and ptt.get("id")]
+
+            artigos_ids = st.multiselect(
+                "Relacionar Artigos",
+                related_project_articles,
+                format_func=lambda aid: article_options.get(aid, aid),
+            )
+            ptts_ids = st.multiselect(
+                "Relacionar PTTs",
+                related_project_ptts,
+                format_func=lambda pid: ptt_options.get(pid, pid),
+            )
+
+            st.markdown("**Divulgação / disseminação para a sociedade**")
+            dissemination_instrument = st.text_input("Instrumento de divulgação/disseminação")
+            target_audience = st.text_input("Público-alvo")
+            expected_impact = st.text_area("Impacto esperado")
+            achieved_impact = st.text_area("Impacto alcançado")
+
             status = status_selector("Status", None, key="status-new")
             save_col, cancel_col = st.columns(2)
             with save_col:
@@ -264,8 +349,12 @@ if can_create:
                         "orientador_id": orientador_id,
                         "mestrando_id": mestrando_id,
                         "status": status,
-                        "artigos_ids": [],
-                        "ptts_ids": [],
+                        "artigos_ids": artigos_ids,
+                        "ptts_ids": ptts_ids,
+                        "dissemination_instrument": dissemination_instrument.strip(),
+                        "target_audience": target_audience.strip(),
+                        "expected_impact": expected_impact.strip(),
+                        "achieved_impact": achieved_impact.strip(),
                         "created_by": current_person_id,
                     }
                 )

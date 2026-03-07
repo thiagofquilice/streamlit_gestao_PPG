@@ -34,6 +34,7 @@ ensure_demo_db()
 configure_page()
 render_sidebar()
 
+
 def status_selector(label: str, value: str | None, key: str) -> str:
     options = selector_labels()
     default_value = selector_default_label(value)
@@ -43,6 +44,7 @@ def status_selector(label: str, value: str | None, key: str) -> str:
     else:
         selected = st.radio(label, options, horizontal=True, index=options.index(default_value), key=key)
     return selector_label_to_key(selected)
+
 
 st.title("Artigos")
 ppg_id = current_ppg()
@@ -89,6 +91,7 @@ def _mestrando_own_dissertations() -> list[dict]:
         return []
     return [d for d in dissertation_rows if d.get("mestrando_id") == current_person_id]
 
+
 if not articles:
     st.info("Nenhum artigo cadastrado para este PPG.")
 
@@ -117,6 +120,12 @@ for article in filtered_articles:
             f"Classificação da revista publicada: {article.get('journal_published_rating') or 'N/A'}"
         )
 
+        st.markdown("**Divulgação / disseminação para a sociedade**")
+        st.caption(f"Instrumento: {article.get('dissemination_instrument') or '-'}")
+        st.caption(f"Público-alvo: {article.get('target_audience') or '-'}")
+        st.caption(f"Impacto esperado: {article.get('expected_impact') or '-'}")
+        st.caption(f"Impacto alcançado: {article.get('achieved_impact') or '-'}")
+
         if can_edit and _can_edit_article(article):
             with st.form(f"article-edit-{article['id']}"):
                 status = status_selector("Status", article.get("status"), key=f"article-status-control-{article['id']}")
@@ -134,6 +143,29 @@ for article in filtered_articles:
                     index=published_index,
                     key=f"article-published-rating-{article['id']}",
                 )
+
+                st.markdown("**Divulgação / disseminação para a sociedade**")
+                dissemination_instrument = st.text_input(
+                    "Instrumento de divulgação/disseminação",
+                    value=article.get("dissemination_instrument") or "",
+                    key=f"article-dissemination-instrument-{article['id']}",
+                )
+                target_audience = st.text_input(
+                    "Público-alvo",
+                    value=article.get("target_audience") or "",
+                    key=f"article-target-audience-{article['id']}",
+                )
+                expected_impact = st.text_area(
+                    "Impacto esperado",
+                    value=article.get("expected_impact") or "",
+                    key=f"article-expected-impact-{article['id']}",
+                )
+                achieved_impact = st.text_area(
+                    "Impacto alcançado",
+                    value=article.get("achieved_impact") or "",
+                    key=f"article-achieved-impact-{article['id']}",
+                )
+
                 submitted_status = st.form_submit_button("Salvar dados", use_container_width=True)
 
             if submitted_status:
@@ -142,6 +174,10 @@ for article in filtered_articles:
                     "status": status,
                     "journal_target_rating": journal_target_rating,
                     "journal_published_rating": journal_published_rating if status == "concluido" else None,
+                    "dissemination_instrument": dissemination_instrument.strip(),
+                    "target_audience": target_audience.strip(),
+                    "expected_impact": expected_impact.strip(),
+                    "achieved_impact": achieved_impact.strip(),
                 }
                 if status == "concluido" and not journal_published_rating:
                     st.error("Informe a classificação da revista publicada para concluir o artigo.")
@@ -182,6 +218,12 @@ if can_create:
             title = st.text_input("Título")
             summary = st.text_area("Resumo")
             year = st.number_input("Ano", min_value=1900, max_value=2100, value=2024, step=1)
+
+            st.markdown("**Divulgação / disseminação para a sociedade**")
+            dissemination_instrument = st.text_input("Instrumento de divulgação/disseminação")
+            target_audience = st.text_input("Público-alvo")
+            expected_impact = st.text_area("Impacto esperado")
+            achieved_impact = st.text_area("Impacto alcançado")
 
             if role == "mestrando":
                 dissertation_id = st.selectbox(
@@ -257,6 +299,10 @@ if can_create:
                             "status": status,
                             "journal_target_rating": journal_target_rating,
                             "journal_published_rating": journal_published_rating if status == "concluido" and role != "mestrando" else None,
+                            "dissemination_instrument": dissemination_instrument.strip(),
+                            "target_audience": target_audience.strip(),
+                            "expected_impact": expected_impact.strip(),
+                            "achieved_impact": achieved_impact.strip(),
                             "created_by": current_person_id,
                         }
                     )

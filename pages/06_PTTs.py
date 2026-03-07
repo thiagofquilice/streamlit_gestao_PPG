@@ -34,6 +34,7 @@ ensure_demo_db()
 configure_page()
 render_sidebar()
 
+
 def status_selector(label: str, value: str | None, key: str) -> str:
     options = selector_labels()
     default_value = selector_default_label(value)
@@ -43,6 +44,7 @@ def status_selector(label: str, value: str | None, key: str) -> str:
     else:
         selected = st.radio(label, options, horizontal=True, index=options.index(default_value), key=key)
     return selector_label_to_key(selected)
+
 
 st.title("PTTs")
 ppg_id = current_ppg()
@@ -89,6 +91,7 @@ def _mestrando_own_dissertations() -> list[dict]:
         return []
     return [d for d in dissertation_rows if d.get("mestrando_id") == current_person_id]
 
+
 if not ptts:
     st.info("Nenhum PTT cadastrado para este PPG.")
 
@@ -113,15 +116,54 @@ for ptt in filtered_ptts:
             f"Status: {status_label(ptt.get('status'))} | Tipo: {ptt.get('tipo_ptt') or 'N/A'} | Dissertação: {disserts.get(ptt.get('dissertation_id')) or 'Sem vínculo'}"
         )
 
+        st.markdown("**Divulgação / disseminação para a sociedade**")
+        st.caption(f"Instrumento: {ptt.get('dissemination_instrument') or '-'}")
+        st.caption(f"Público-alvo: {ptt.get('target_audience') or '-'}")
+        st.caption(f"Impacto esperado: {ptt.get('expected_impact') or '-'}")
+        st.caption(f"Impacto alcançado: {ptt.get('achieved_impact') or '-'}")
+
         if can_edit and _can_edit_ptt(ptt):
             with st.form(f"ptt-status-{ptt['id']}"):
                 status = status_selector("Status", ptt.get("status"), key=f"ptt-status-control-{ptt['id']}")
                 tipo_index = ptt_type_options.index(ptt.get("tipo_ptt")) if ptt.get("tipo_ptt") in ptt_type_options else 0
                 tipo_ptt = st.selectbox("Tipo de PTT", ptt_type_options or [""], index=tipo_index, key=f"ptt-type-{ptt['id']}")
+
+                st.markdown("**Divulgação / disseminação para a sociedade**")
+                dissemination_instrument = st.text_input(
+                    "Instrumento de divulgação/disseminação",
+                    value=ptt.get("dissemination_instrument") or "",
+                    key=f"ptt-dissemination-instrument-{ptt['id']}",
+                )
+                target_audience = st.text_input(
+                    "Público-alvo",
+                    value=ptt.get("target_audience") or "",
+                    key=f"ptt-target-audience-{ptt['id']}",
+                )
+                expected_impact = st.text_area(
+                    "Impacto esperado",
+                    value=ptt.get("expected_impact") or "",
+                    key=f"ptt-expected-impact-{ptt['id']}",
+                )
+                achieved_impact = st.text_area(
+                    "Impacto alcançado",
+                    value=ptt.get("achieved_impact") or "",
+                    key=f"ptt-achieved-impact-{ptt['id']}",
+                )
+
                 submitted_status = st.form_submit_button("Salvar dados", use_container_width=True)
 
             if submitted_status:
-                upsert_ptt({**ptt, "status": status, "tipo_ptt": tipo_ptt})
+                upsert_ptt(
+                    {
+                        **ptt,
+                        "status": status,
+                        "tipo_ptt": tipo_ptt,
+                        "dissemination_instrument": dissemination_instrument.strip(),
+                        "target_audience": target_audience.strip(),
+                        "expected_impact": expected_impact.strip(),
+                        "achieved_impact": achieved_impact.strip(),
+                    }
+                )
                 st.success("Dados do PTT atualizados.")
                 st.rerun()
 
@@ -154,6 +196,13 @@ if can_create:
             title = st.text_input("Título")
             summary = st.text_area("Resumo")
             year = st.number_input("Ano", min_value=1900, max_value=2100, value=2024, step=1)
+
+            st.markdown("**Divulgação / disseminação para a sociedade**")
+            dissemination_instrument = st.text_input("Instrumento de divulgação/disseminação")
+            target_audience = st.text_input("Público-alvo")
+            expected_impact = st.text_area("Impacto esperado")
+            achieved_impact = st.text_area("Impacto alcançado")
+
             if role == "mestrando":
                 dissertation_id = st.selectbox(
                     "Dissertação (obrigatória)",
@@ -209,6 +258,10 @@ if can_create:
                         "dissertation_id": dissertation_id,
                         "status": status,
                         "tipo_ptt": tipo_ptt,
+                        "dissemination_instrument": dissemination_instrument.strip(),
+                        "target_audience": target_audience.strip(),
+                        "expected_impact": expected_impact.strip(),
+                        "achieved_impact": achieved_impact.strip(),
                         "created_by": current_person_id,
                     }
                 )
