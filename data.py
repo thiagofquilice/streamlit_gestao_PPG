@@ -170,6 +170,12 @@ def upsert_impact_case(payload: Dict[str, Any]) -> Dict[str, Any]:
         payload["id"] = next_id("impact")
     payload.setdefault("involved_people_ids", [])
     payload.setdefault("evidence_ids", [])
+    payload.setdefault("related_dissertation_ids", [])
+    payload.setdefault("related_article_ids", [])
+    payload.setdefault("related_ptt_ids", [])
+    payload.setdefault("related_project_ids", [])
+    payload.setdefault("related_line_ids", [])
+    payload.setdefault("has_academic_links", False)
     return _upsert("impact_cases", payload)
 
 
